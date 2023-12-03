@@ -14,27 +14,52 @@ import (
 // - 5:hello -> hello
 // - 10:hello12345 -> hello12345
 func decodeBencode(bencodedString string) (interface{}, error) {
-	if unicode.IsDigit(rune(bencodedString[0])) {
-		var firstColonIndex int
-
-		for i := 0; i < len(bencodedString); i++ {
-			if bencodedString[i] == ':' {
-				firstColonIndex = i
-				break
-			}
-		}
-
-		lengthStr := bencodedString[:firstColonIndex]
-
-		length, err := strconv.Atoi(lengthStr)
-		if err != nil {
-			return "", err
-		}
-
-		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
-	} else {
+	switch {
+	case unicode.IsDigit(rune(bencodedString[0])):
+		return decodeString(bencodedString)
+	case bencodedString[0] == 'i': 
+		return decodeInteger(bencodedString)
+	default:
 		return "", fmt.Errorf("only strings are supported at the moment")
 	}
+}
+
+func decodeInteger(bencodedString string) (int, error) {
+	var eIndex int
+
+	for i := 0; i < len(bencodedString); i++ {
+		if bencodedString[i] == 'e' {
+			eIndex = i
+			break
+		}
+	}
+
+	integer, err := strconv.Atoi(bencodedString[1:eIndex])
+	if err != nil {
+		return 0, err
+	}
+
+	return integer, nil
+}
+
+func decodeString(bencodedString string) (string, error) {
+	var firstColonIndex int
+
+	for i := 0; i < len(bencodedString); i++ {
+		if bencodedString[i] == ':' {
+			firstColonIndex = i
+			break
+		}
+	}
+
+	lengthStr := bencodedString[:firstColonIndex]
+
+	length, err := strconv.Atoi(lengthStr)
+	if err != nil {
+		return "", err
+	}
+
+	return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
 }
 
 func main() {
@@ -42,13 +67,13 @@ func main() {
 
 	if command == "decode" {
 		bencodedValue := os.Args[2]
-		
+
 		decoded, err := decodeBencode(bencodedValue)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		
+
 		jsonOutput, _ := json.Marshal(decoded)
 		fmt.Println(string(jsonOutput))
 	} else {
