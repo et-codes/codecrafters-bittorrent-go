@@ -1,35 +1,33 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
-
-	"github.com/jackpal/bencode-go"
 )
-
-func decodeBencode(bencodedString string) (interface{}, error) {
-	reader := strings.NewReader(bencodedString)
-	result, err := bencode.Decode(reader)
-	return result, err
-}
 
 func main() {
 	command := os.Args[1]
 
-	if command == "decode" {
+	switch command {
+	case "decode":
 		bencodedValue := os.Args[2]
-
 		decoded, err := decodeBencode(bencodedValue)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		printDecodeOutput(decoded)
 
-		jsonOutput, _ := json.Marshal(decoded)
-		fmt.Println(string(jsonOutput))
-	} else {
+	case "info":
+		path := os.Args[2]
+		tf, err := parseTorrentFile(path)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		printInfoOutput(tf)
+
+	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
