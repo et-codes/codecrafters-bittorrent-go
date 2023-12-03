@@ -7,7 +7,12 @@ import (
 	"unicode"
 )
 
-func decodeBencode(bencodedString string) (interface{}, string, error) {
+func decodeBencode(bencodedString string) (interface{}, error) {
+	result, _, err := doDecodeBencode(bencodedString)
+	return result, err
+}
+
+func doDecodeBencode(bencodedString string) (interface{}, string, error) {
 	var (
 		result interface{}
 		remainingString string
@@ -60,7 +65,7 @@ func decodeList(bencodedString string) ([]interface{}, string, error) {
 
 	// Iterate through the elements inside the list
 	for {
-		value, remaining, err := decodeBencode(bencodedString)
+		value, remaining, err := doDecodeBencode(bencodedString)
 		if err != nil {
 			return nil, "", err
 		}
