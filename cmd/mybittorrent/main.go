@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"unicode"
 	// bencode "github.com/jackpal/bencode-go" // Available if you need it!
 )
@@ -25,16 +26,10 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 }
 
 func decodeInteger(bencodedString string) (int, error) {
-	var eIndex int
+	bencodedString = strings.TrimPrefix(bencodedString, "i")
+	bencodedString = strings.TrimSuffix(bencodedString, "e")
 
-	for i := 0; i < len(bencodedString); i++ {
-		if bencodedString[i] == 'e' {
-			eIndex = i
-			break
-		}
-	}
-
-	integer, err := strconv.Atoi(bencodedString[1:eIndex])
+	integer, err := strconv.Atoi(bencodedString)
 	if err != nil {
 		return 0, err
 	}
