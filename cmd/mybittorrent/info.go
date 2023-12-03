@@ -5,14 +5,16 @@ import (
 	"os"
 )
 
+type TorrentInfo struct {
+	Length      int    `bencode:"length"`
+	Name        string `bencode:"name"`
+	PieceLength int    `bencode:"piece length"`
+	Pieces      string `bencode:"pieces"`
+}
+
 type TorrentFile struct {
-	Announce string `bencode:"announce"`
-	Info     struct {
-		Length      int    `bencode:"length"`
-		Name        string `bencode:"name"`
-		PieceLength int    `bencode:"piece length"`
-		Pieces      string `bencode:"pieces"`
-	}
+	Announce string      `bencode:"announce"`
+	Info     TorrentInfo `bencode:"info"`
 }
 
 func parseTorrentFile(path string) (TorrentFile, error) {
@@ -34,4 +36,6 @@ func parseTorrentFile(path string) (TorrentFile, error) {
 func printInfoOutput(tf TorrentFile) {
 	fmt.Printf("Tracker URL: %s\n", tf.Announce)
 	fmt.Printf("Length: %d\n", tf.Info.Length)
+	bc, _ := hashTorrentInfo(tf.Info)
+	fmt.Printf("Info Hash: %s\n", bc)
 }
