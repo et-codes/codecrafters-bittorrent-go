@@ -4,8 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	// bencode "github.com/jackpal/bencode-go" // Available if you need it!
+	"strings"
+
+	"github.com/jackpal/bencode-go"
 )
+
+func decodeBencode(bencodedString string) (interface{}, error) {
+	reader := strings.NewReader(bencodedString)
+	result, err := bencode.Decode(reader)
+	return result, err
+}
 
 func main() {
 	command := os.Args[1]
