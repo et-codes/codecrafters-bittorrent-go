@@ -20,7 +20,7 @@ func main() {
 
 	case "info":
 		path := os.Args[2]
-		tf, err := parseTorrentFile(path)
+		tf, err := NewTorrentFile(path)
 		if err != nil {
 			fmt.Println(err)
 			return
