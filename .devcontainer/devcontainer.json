@@ -15,7 +15,7 @@
   // "forwardPorts": [],
 
   // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "git config --global user.email \"ericthornton43@gmail.com\" && git config --global user.name \"et-codes\""
+  "postCreateCommand": "git config --global user.email \"ericthornton43@gmail.com\" && git config --global user.name \"et-codes\" && curl https://codecrafters.io/install.sh | sh"
 
   // Configure tool-specific properties.
   //   "customizations": {},
