@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"os"
 
@@ -43,7 +44,8 @@ func (tf *TorrentFile) PieceHashes() []string {
 	hashes := []string{}
 
 	for i := 0; i < len(tf.Info.Pieces); i += 20 {
-		hashes = append(hashes, fmt.Sprintf("%x", tf.Info.Pieces[i:i+20]))
+		piece := []byte(tf.Info.Pieces[i : i+20])
+		hashes = append(hashes, hex.EncodeToString(piece))
 	}
 
 	return hashes
@@ -53,7 +55,7 @@ func (tf *TorrentFile) PieceHashes() []string {
 func (tf *TorrentFile) InfoHash() (string, error) {
 	h := sha1.New()
 	err := bencode.Marshal(h, tf.Info)
-	out := fmt.Sprintf("%x", h.Sum(nil)) // convert to hex string
+	out := hex.EncodeToString(h.Sum(nil)) // convert to hex string
 	return out, err
 }
 
