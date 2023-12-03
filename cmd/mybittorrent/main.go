@@ -11,22 +11,25 @@ func main() {
 	switch command {
 	case "decode":
 		bencodedValue := os.Args[2]
-		decoded, err := decodeBencode(bencodedValue)
+		err := Decode(bencodedValue)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		printDecodeOutput(decoded)
-
 	case "info":
 		path := os.Args[2]
-		tf, err := NewTorrentFile(path)
+		err := Info(path)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		printInfoOutput(tf)
-
+	case "peers":
+		path := os.Args[2]
+		err := Peers(path)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)

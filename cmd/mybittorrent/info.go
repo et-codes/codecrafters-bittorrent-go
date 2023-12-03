@@ -21,6 +21,15 @@ type TorrentFile struct {
 	Info     TorrentInfo `bencode:"info"`
 }
 
+func Info(path string) error {
+	tf, err := NewTorrentFile(path)
+	if err != nil {
+		return err
+	}
+	printInfoOutput(tf)
+	return nil
+}
+
 // NewTorrentFile populates a TorrentFile struct with info from the torrent file.
 func NewTorrentFile(path string) (TorrentFile, error) {
 	tf := TorrentFile{}
@@ -51,18 +60,24 @@ func (tf *TorrentFile) PieceHashes() []string {
 	return hashes
 }
 
-// InfoHash returns the SHA-1 hash of the torrent info dictionary.
+// InfoHashHex returns the SHA-1 hash of the torrent info dictionary in hex format.
+func (tf *TorrentFile) InfoHashHex() (string, error) {
+	hash, err := tf.InfoHash()
+	out := hex.EncodeToString([]byte(hash))
+	return out, err
+}
+
+// InfoHashHex returns the SHA-1 hash of the torrent info dictionary in binary format.
 func (tf *TorrentFile) InfoHash() (string, error) {
 	h := sha1.New()
 	err := bencode.Marshal(h, tf.Info)
-	out := hex.EncodeToString(h.Sum(nil)) // convert to hex string
-	return out, err
+	return string(h.Sum(nil)), err
 }
 
 func printInfoOutput(tf TorrentFile) {
 	fmt.Printf("Tracker URL: %s\n", tf.Announce)
 	fmt.Printf("Length: %d\n", tf.Info.Length)
-	bc, _ := tf.InfoHash()
+	bc, _ := tf.InfoHashHex()
 	fmt.Printf("Info Hash: %s\n", bc)
 	fmt.Printf("Piece Length: %d\n", tf.Info.PieceLength)
 	fmt.Println("Piece Hashes:")
