@@ -41,7 +41,11 @@ func main() {
 		}
 		path := os.Args[2]
 		peer := os.Args[3]
-		fmt.Println(path, peer)
+		err := Handshake(path, peer)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
