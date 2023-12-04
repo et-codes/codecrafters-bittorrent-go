@@ -8,13 +8,12 @@ import (
 	"github.com/jackpal/bencode-go"
 )
 
-func Decode(bencodedValue string) error {
+func Decode(bencodedValue string) (interface{}, error) {
 	decoded, err := decodeBencode(bencodedValue)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	printDecodeOutput(decoded)
-	return nil
+	return decoded, nil
 }
 
 func decodeBencode(bencodedString string) (interface{}, error) {

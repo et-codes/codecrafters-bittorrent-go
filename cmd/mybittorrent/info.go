@@ -21,13 +21,12 @@ type TorrentFile struct {
 	Info     TorrentInfo `bencode:"info"`
 }
 
-func Info(path string) error {
+func Info(path string) (TorrentFile, error) {
 	tf, err := NewTorrentFile(path)
 	if err != nil {
-		return err
+		return tf, err
 	}
-	printInfoOutput(tf)
-	return nil
+	return tf, nil
 }
 
 // NewTorrentFile populates a TorrentFile struct with info from the torrent file.

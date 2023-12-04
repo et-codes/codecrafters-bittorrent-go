@@ -24,11 +24,10 @@ type PeerResponse struct {
 type PeerList []string
 
 type HandshakeMessage struct {
-	Length   byte
-	Protocol string
-	Reserved []byte
-	InfoHash string
-	PeerID   string
+	Protocol string // should be "BitTorrent protocol"
+	Reserved []byte // should be {0, 0, 0, 0, 0, 0, 0, 0}
+	InfoHash string // SHA-1 hash of torrent file info
+	PeerID   string // ID of the peer
 }
 
 func Peers(path string) error {
@@ -45,55 +44,74 @@ func Peers(path string) error {
 }
 
 func NewHandshakeMessage(infoHash string) []byte {
-	message := []byte{}
-	message = append(message, byte(19))
-	message = append(message, []byte("BitTorrent protocol")...)
-	message = append(message, make([]byte, 8)...)
+	protocolLength := byte(19)
+	protocol := []byte("BitTorrent protocol")
+	reserved := make([]byte, 8)
+
+	message := append([]byte{protocolLength}, protocol...)
+	message = append(message, reserved...)
 	message = append(message, []byte(infoHash)...)
 	message = append(message, []byte(peerID)...)
 
 	return message
 }
 
-func Handshake(path, peer string) error {
+func Handshake(path, peer string) (HandshakeMessage, error) {
+	// Open torrent file and get the info hash.
 	tf, err := NewTorrentFile(path)
 	if err != nil {
-		return err
+		return HandshakeMessage{}, err
 	}
 
 	infoHash, err := tf.InfoHash()
 	if err != nil {
-		return err
+		return HandshakeMessage{}, err
 	}
 
+	// Create the handshake message.
 	message := NewHandshakeMessage(infoHash)
 
+	// Establish a connection with peer.
 	conn, err := net.Dial("tcp", peer)
 	if err != nil {
-		return err
+		return HandshakeMessage{}, err
 	}
 	defer conn.Close()
 
+	// Send the handshake.
 	n, err := conn.Write(message)
 	if err != nil {
-		return err
+		return HandshakeMessage{}, err
 	}
-	fmt.Printf("%d bytes sent\n", n)
-	fmt.Println("Waiting for response...")
 
+	// Wait for the response.
 	resp := make([]byte, n)
 	for {
 		_, err := conn.Read(resp)
 		if err != nil {
 			if err != io.EOF {
-				return err
+				return HandshakeMessage{}, err
 			}
 			break
 		}
 	}
 
-	fmt.Println(string(resp))
-	return err
+	// Unmarshal the response into a HandshakeMessage.
+	return parseHandshake(resp)
+}
+
+func parseHandshake(resp []byte) (HandshakeMessage, error) {
+	result := HandshakeMessage{}
+	if len(resp) != 68 {
+		return result, fmt.Errorf("expect response length 68, got %d", len(resp))
+	}
+
+	result.Protocol = string(resp[1:20])
+	result.Reserved = resp[20:28]
+	result.InfoHash = string(resp[28:48])
+	result.PeerID = string(resp[48:])
+
+	return result, nil
 }
 
 func (tf *TorrentFile) PeerList() (PeerList, error) {
@@ -183,4 +201,8 @@ func PrintPeersOutput(peers PeerList) {
 	for _, peer := range peers {
 		fmt.Println(peer)
 	}
+}
+
+func PrintHandshakeOutput(handshake HandshakeMessage) {
+	fmt.Printf("Peer ID: %x\n", handshake.PeerID)
 }

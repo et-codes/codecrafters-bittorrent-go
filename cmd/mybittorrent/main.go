@@ -12,21 +12,33 @@ func main() {
 	}
 	command := os.Args[1]
 
-	switch command {
-	case "decode":
+	// Decode does not use a torrent file as an argument.
+	if command == "decode" {
 		bencodedValue := os.Args[2]
-		err := Decode(bencodedValue)
+		decoded, err := Decode(bencodedValue)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		printDecodeOutput(decoded)
+		return
+	}
+
+	tf, err := NewTorrentFile(os.Args[2])
+	if err != nil {
+		fmt.Println(err)
+	}
+	_ = tf
+
+	switch command {
 	case "info":
 		path := os.Args[2]
-		err := Info(path)
+		tf, err := Info(path)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		printInfoOutput(tf)
 	case "peers":
 		path := os.Args[2]
 		err := Peers(path)
@@ -41,11 +53,12 @@ func main() {
 		}
 		path := os.Args[2]
 		peer := os.Args[3]
-		err := Handshake(path, peer)
+		handshake, err := Handshake(path, peer)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		PrintHandshakeOutput(handshake)
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
