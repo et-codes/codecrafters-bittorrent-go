@@ -4,62 +4,9 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
-	"os"
 
 	"github.com/jackpal/bencode-go"
 )
-
-type TorrentInfo struct {
-	Length      int    `bencode:"length"`
-	Name        string `bencode:"name"`
-	PieceLength int    `bencode:"piece length"`
-	Pieces      string `bencode:"pieces"`
-}
-
-type TorrentFile struct {
-	Announce    string      `bencode:"announce"`
-	Info        TorrentInfo `bencode:"info"`
-	InfoHash    string
-	Peers       []string // List of peer IP addresses
-	PieceHashes []string // SHA-1 hashes of Pieces
-}
-
-func Info(path string) (TorrentFile, error) {
-	tf, err := NewTorrentFile(path)
-	if err != nil {
-		return tf, err
-	}
-	return tf, nil
-}
-
-// NewTorrentFile populates a TorrentFile struct with info from the torrent file.
-func NewTorrentFile(path string) (TorrentFile, error) {
-	tf := TorrentFile{}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return tf, err
-	}
-
-	err = decodeTorrentFile(string(data), &tf)
-	if err != nil {
-		return tf, err
-	}
-
-	err = tf.HashInfo()
-	if err != nil {
-		return tf, err
-	}
-
-	tf.HashPieces()
-
-	err = tf.peerList()
-	if err != nil {
-		return tf, err
-	}
-
-	return tf, nil
-}
 
 // PieceHashes generates a slice of hex strings representing the SHA-1 hash of
 // each piece in the torrent file.

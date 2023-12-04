@@ -12,6 +12,8 @@ import (
 	"github.com/jackpal/bencode-go"
 )
 
+const PeerID = "00112233445566778899" // Peer ID used for this client (20 bytes)
+
 type PeerResponse struct {
 	Complete    int    `bencode:"complete"`
 	Incomplete  int    `bencode:"incomplete"`
@@ -35,7 +37,7 @@ func newHandshakeMessage(infoHash string) []byte {
 	message := append([]byte{protocolLength}, protocol...)
 	message = append(message, reserved...)
 	message = append(message, []byte(infoHash)...)
-	message = append(message, []byte(peerID)...)
+	message = append(message, []byte(PeerID)...)
 
 	return message
 }
@@ -146,7 +148,7 @@ func peerRequestURL(rawURL string, infoHash string, infoLength int) (string, err
 
 	values := addr.Query()
 	values.Add("info_hash", infoHash)
-	values.Add("peer_id", peerID)
+	values.Add("peer_id", PeerID)
 	values.Add("port", "6881")
 	values.Add("uploaded", "0")
 	values.Add("downloaded", "0")

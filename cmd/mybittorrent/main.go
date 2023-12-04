@@ -3,14 +3,15 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
 )
 
 const (
-	peerID       = "00112233445566778899" // Peer ID used for this client (20 bytes)
-	cmdDecode    = "decode"
-	cmdInfo      = "info"
-	cmdPeers     = "peers"
-	cmdHandshake = "handshake"
+	cmdDecode        = "decode"
+	cmdInfo          = "info"
+	cmdPeers         = "peers"
+	cmdHandshake     = "handshake"
+	cmdDownloadPiece = "download_piece"
 )
 
 func main() {
@@ -20,43 +21,87 @@ func main() {
 	}
 	command := os.Args[1]
 
-	// Decode does not use a torrent file as an argument.
-	if command == cmdDecode {
-		bencodedValue := os.Args[2]
-		decoded, err := Decode(bencodedValue)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		printDecodeOutput(decoded)
-		return
-	}
-
-	path := os.Args[2]
-	tf, err := NewTorrentFile(path)
-	if err != nil {
-		fmt.Println(err)
-	}
-
 	switch command {
+	case cmdDecode:
+		doDecode()
 	case cmdInfo:
-		tf.PrintInfo()
+		doInfo()
 	case cmdPeers:
-		tf.PrintPeers()
+		doPeers()
 	case cmdHandshake:
-		if len(os.Args) < 4 {
-			fmt.Println("Insufficient number of arguments given.")
-			os.Exit(1)
-		}
-		peer := os.Args[3]
-		handshake, err := tf.Handshake(peer)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		PrintHandshake(handshake)
+		doHandshake()
+	case cmdDownloadPiece:
+		doDownloadPiece()
 	default:
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
 	}
+}
+
+func doDecode() {
+	bencodedValue := os.Args[2]
+	decoded, err := Decode(bencodedValue)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	printDecodeOutput(decoded)
+}
+
+func doInfo() {
+	path := os.Args[2]
+	tf, err := NewTorrentFile(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tf.PrintInfo()
+}
+
+func doPeers() {
+	path := os.Args[2]
+	tf, err := NewTorrentFile(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	tf.PrintPeers()
+}
+
+func doHandshake() {
+	if len(os.Args) < 4 {
+		fmt.Println("Insufficient number of arguments given.")
+		os.Exit(1)
+	}
+	path := os.Args[2]
+	tf, err := NewTorrentFile(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	peer := os.Args[3]
+	handshake, err := tf.Handshake(peer)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	PrintHandshake(handshake)
+}
+
+func doDownloadPiece() {
+	if len(os.Args) < 6 || os.Args[2] != "-o" {
+		fmt.Println("Syntax: mybittorrent download_piece -o " +
+			"[OUTPUT_PATH] [TORRENT_PATH] [PIECE_INDEX]")
+		os.Exit(1)
+	}
+	outputPath := os.Args[3]
+	path := os.Args[4]
+	piece, _ := strconv.Atoi(os.Args[5])
+
+	_, err := NewTorrentFile(path)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("Download piece %d from %s to %s\n", piece, path, outputPath)
 }
