@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/jackpal/bencode-go"
 )
@@ -22,11 +21,12 @@ type PeerResponse struct {
 	Peers       string `bencode:"peers"`
 }
 
-type HandshakeMessage struct {
-	Protocol string // should be "BitTorrent protocol"
-	Reserved []byte // should be {0, 0, 0, 0, 0, 0, 0, 0}
-	InfoHash string // SHA-1 hash of torrent file info
-	PeerID   string // ID of the peer
+type Peer struct {
+	conn     net.Conn // connection to peer
+	Protocol string   // should be "BitTorrent protocol"
+	Reserved []byte   // should be {0, 0, 0, 0, 0, 0, 0, 0}
+	InfoHash string   // SHA-1 hash of torrent file info
+	PeerID   string   // ID of the peer
 }
 
 func newHandshakeMessage(infoHash string) []byte {
@@ -42,39 +42,37 @@ func newHandshakeMessage(infoHash string) []byte {
 	return message
 }
 
-func (tf *TorrentFile) Handshake(peer string) (HandshakeMessage, error) {
+func (tf *TorrentFile) Handshake(conn net.Conn, peerAddr string) (Peer, error) {
 	// Create the handshake message.
 	message := newHandshakeMessage(tf.InfoHash)
-
-	// Establish a connection with peer.
-	conn, err := net.Dial("tcp", peer)
-	if err != nil {
-		return HandshakeMessage{}, err
-	}
-	defer conn.Close()
 
 	// Send the handshake.
 	n, err := conn.Write(message)
 	if err != nil {
-		return HandshakeMessage{}, err
+		return Peer{}, err
 	}
 
 	// Wait for the response.
 	resp := make([]byte, n)
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 	_, err = conn.Read(resp)
 	if err != nil {
 		if err != io.EOF {
-			return HandshakeMessage{}, err
+			return Peer{}, err
 		}
 	}
 
 	// Unmarshal the response into a HandshakeMessage.
+	peer, err := parseHandshake(resp)
+	if err != nil {
+		return peer, err
+	}
+
+	peer.conn = conn
 	return parseHandshake(resp)
 }
 
-func parseHandshake(resp []byte) (HandshakeMessage, error) {
-	result := HandshakeMessage{}
+func parseHandshake(resp []byte) (Peer, error) {
+	result := Peer{}
 	if len(resp) != 68 {
 		return result, fmt.Errorf("expect response length 68, got %d", len(resp))
 	}
@@ -166,6 +164,6 @@ func (tf *TorrentFile) PrintPeers() {
 	}
 }
 
-func PrintHandshake(handshake HandshakeMessage) {
+func PrintHandshake(handshake Peer) {
 	fmt.Printf("Peer ID: %x\n", handshake.PeerID)
 }

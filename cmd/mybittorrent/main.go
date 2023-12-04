@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 )
@@ -80,7 +81,14 @@ func doHandshake() {
 		return
 	}
 	peer := os.Args[3]
-	handshake, err := tf.Handshake(peer)
+	// Establish a connection with peer.
+	conn, err := net.Dial("tcp", tf.Peers[0])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer conn.Close()
+	handshake, err := tf.Handshake(conn, peer)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -98,10 +106,11 @@ func doDownloadPiece() {
 	path := os.Args[4]
 	piece, _ := strconv.Atoi(os.Args[5])
 
-	_, err := NewTorrentFile(path)
+	tf, err := NewTorrentFile(path)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Printf("Download piece %d from %s to %s\n", piece, path, outputPath)
+	fmt.Printf("Downloading piece %d from %s to %s\n", piece, path, outputPath)
+	tf.DownloadPiece()
 }
