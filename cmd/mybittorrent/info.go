@@ -17,8 +17,11 @@ type TorrentInfo struct {
 }
 
 type TorrentFile struct {
-	Announce string      `bencode:"announce"`
-	Info     TorrentInfo `bencode:"info"`
+	Announce    string      `bencode:"announce"`
+	Info        TorrentInfo `bencode:"info"`
+	InfoHash    string
+	Peers       []string // List of peer IP addresses
+	PieceHashes []string // SHA-1 hashes of Pieces
 }
 
 func Info(path string) (TorrentFile, error) {
@@ -43,12 +46,24 @@ func NewTorrentFile(path string) (TorrentFile, error) {
 		return tf, err
 	}
 
+	err = tf.HashInfo()
+	if err != nil {
+		return tf, err
+	}
+
+	tf.HashPieces()
+
+	err = tf.peerList()
+	if err != nil {
+		return tf, err
+	}
+
 	return tf, nil
 }
 
-// PieceHashes returns a slice of hex strings representing the SHA-1 hash of
+// PieceHashes generates a slice of hex strings representing the SHA-1 hash of
 // each piece in the torrent file.
-func (tf *TorrentFile) PieceHashes() []string {
+func (tf *TorrentFile) HashPieces() {
 	hashes := []string{}
 
 	for i := 0; i < len(tf.Info.Pieces); i += 20 {
@@ -56,31 +71,33 @@ func (tf *TorrentFile) PieceHashes() []string {
 		hashes = append(hashes, hex.EncodeToString(piece))
 	}
 
-	return hashes
+	tf.PieceHashes = hashes
 }
 
 // InfoHashHex returns the SHA-1 hash of the torrent info dictionary in hex format.
-func (tf *TorrentFile) InfoHashHex() (string, error) {
-	hash, err := tf.InfoHash()
-	out := hex.EncodeToString([]byte(hash))
-	return out, err
+func (tf *TorrentFile) InfoHashHex() string {
+	out := hex.EncodeToString([]byte(tf.InfoHash))
+	return out
 }
 
-// InfoHashHex returns the SHA-1 hash of the torrent info dictionary in binary format.
-func (tf *TorrentFile) InfoHash() (string, error) {
+// HashInfo calculates the SHA-1 hash of the torrent info dictionary in binary format.
+func (tf *TorrentFile) HashInfo() error {
 	h := sha1.New()
 	err := bencode.Marshal(h, tf.Info)
-	return string(h.Sum(nil)), err
+	if err != nil {
+		return err
+	}
+	tf.InfoHash = string(h.Sum(nil))
+	return nil
 }
 
-func printInfoOutput(tf TorrentFile) {
+func (tf *TorrentFile) PrintInfo() {
 	fmt.Printf("Tracker URL: %s\n", tf.Announce)
 	fmt.Printf("Length: %d\n", tf.Info.Length)
-	bc, _ := tf.InfoHashHex()
-	fmt.Printf("Info Hash: %s\n", bc)
+	fmt.Printf("Info Hash: %s\n", tf.InfoHashHex())
 	fmt.Printf("Piece Length: %d\n", tf.Info.PieceLength)
 	fmt.Println("Piece Hashes:")
-	for _, hash := range tf.PieceHashes() {
+	for _, hash := range tf.PieceHashes {
 		fmt.Println(hash)
 	}
 }
