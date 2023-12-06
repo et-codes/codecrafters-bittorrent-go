@@ -42,7 +42,7 @@ func newHandshakeMessage(infoHash string) []byte {
 	return message
 }
 
-func (tf *TorrentFile) Handshake(conn net.Conn, peerAddr string) (Peer, error) {
+func (tf *TorrentFile) Handshake(conn io.ReadWriter, peerAddr string) (Peer, error) {
 	// Create the handshake message.
 	message := newHandshakeMessage(tf.InfoHash)
 
@@ -67,7 +67,6 @@ func (tf *TorrentFile) Handshake(conn net.Conn, peerAddr string) (Peer, error) {
 		return peer, err
 	}
 
-	peer.conn = conn
 	return parseHandshake(resp)
 }
 
