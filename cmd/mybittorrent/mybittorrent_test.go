@@ -102,7 +102,7 @@ func TestHandshake(t *testing.T) {
 		peer int
 		want string
 	}{
-		"handshake peer": {0, "00112233445566778899"},
+		"handshake has correct peer ID": {0, PeerID},
 	}
 
 	for name, test := range tests {

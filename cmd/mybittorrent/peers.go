@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 
@@ -22,11 +21,10 @@ type PeerResponse struct {
 }
 
 type Peer struct {
-	conn     net.Conn // connection to peer
-	Protocol string   // should be "BitTorrent protocol"
-	Reserved []byte   // should be {0, 0, 0, 0, 0, 0, 0, 0}
-	InfoHash string   // SHA-1 hash of torrent file info
-	PeerID   string   // ID of the peer
+	Protocol string // should be "BitTorrent protocol"
+	Reserved []byte // should be {0, 0, 0, 0, 0, 0, 0, 0}
+	InfoHash string // SHA-1 hash of torrent file info
+	PeerID   string // ID of the peer
 }
 
 func newHandshakeMessage(infoHash string) []byte {
