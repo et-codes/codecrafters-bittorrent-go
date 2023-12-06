@@ -19,50 +19,71 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 	// Calculate how many blocks are needed to fetch the entire piece.
 	blocksRequired := int(math.Ceil(float64(c.Info.PieceLength) / float64(blockLength)))
 
-	bytesReceived := 0
+	pieceBytesReceived := 0
 	pieceData := []byte{}
 
 	// Send request message for each 16kb block, wait for corresponding piece message.
-	for blockNum := 0; blockNum < blocksRequired; blockNum++ {
-		blockSize := blockLength
+	log.Printf("Requesting %d blocks to retreive piece of length %d...\n",
+		blocksRequired, c.Info.PieceLength)
+	for blockNum := 1; blockNum <= blocksRequired; blockNum++ {
+		blockBytesReceived := 0
+		blockBytesExpected := blockLength
 
 		// Last block may be less than a full block length.
-		if blockNum == blocksRequired-1 {
-			blockSize = c.Info.PieceLength % blockLength
+		if blockNum == blocksRequired {
+			blockBytesExpected = c.Info.PieceLength - pieceBytesReceived
 		}
 
-		// Build request message.
-		payload := requestPayloadToBytes(RequestPayload{
-			Index:  uint32(pieceIndex),
-			Offset: uint32(bytesReceived),
-			Length: uint32(blockSize),
-		})
-		request := Message{
-			Header:  MessageHeader{Type: msgRequest},
-			Payload: payload,
+		log.Printf("Block %d/%d expects %d bytes.",
+			blockNum, blocksRequired, blockBytesExpected)
+
+		block := []byte{}
+
+		for blockBytesReceived < blockBytesExpected {
+			// Build request message.
+			payload := requestPayloadToBytes(RequestPayload{
+				Index:  uint32(pieceIndex),
+				Offset: uint32(pieceBytesReceived),
+				Length: uint32(blockBytesExpected - blockBytesReceived),
+			})
+			request := Message{
+				Header:  MessageHeader{Type: msgRequest},
+				Payload: payload,
+			}
+
+			// Send request message.
+			log.Printf("Sending request message for block %d/%d at offset %d...\n", blockNum, blocksRequired, pieceBytesReceived)
+			err := sendMessage(conn, request)
+			if err != nil {
+				return err
+			}
+
+			// TODO figure out why we have to wait before reading message...
+			time.Sleep(500 * time.Millisecond)
+
+			// Get piece message.
+			log.Println("Waiting for piece message...")
+			piece, err := receiveMessage(conn, msgPiece)
+			if err != nil {
+				if piece.Header.Type == msgRejected {
+					log.Println("Request was rejected.")
+				}
+				return err
+			}
+			index, offset, partialBlock := parsePiecePayload(piece)
+			log.Printf("Piece message received, length %d, type %d, index %d, offset %d, block size %d.\n",
+				piece.Header.Length, piece.Header.Type, index, offset, len(partialBlock))
+
+			block = append(block, partialBlock...)
+			blockBytesReceived += len(partialBlock)
 		}
 
-		// Send request message.
-		log.Println("Sending request message...")
-		err := sendMessage(conn, request)
-		if err != nil {
-			return err
-		}
+		log.Printf("Block %d/%d received %d bytes.\n", blockNum, blocksRequired, blockBytesReceived)
+		pieceBytesReceived += blockBytesReceived
+		pieceData = append(pieceData, block...)
 
 		// TODO figure out why we have to wait before reading message...
 		time.Sleep(500 * time.Millisecond)
-
-		// Get piece message.
-		log.Println("Waiting for piece message...")
-		piece, err := receiveMessage(conn, msgPiece)
-		if err != nil {
-			return err
-		}
-		index, offset, block := parsePiecePayload(piece)
-		log.Printf("Piece message received, index %d, offset %d, block size %d.\n",
-			index, offset, len(block))
-
-		pieceData = append(pieceData, block...)
 	}
 
 	log.Println(string(pieceData))

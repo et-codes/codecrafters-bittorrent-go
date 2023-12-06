@@ -46,7 +46,7 @@ const (
 	msgRequest              // 6 index, offest, and length
 	msgPiece                // 7 index, offest, and piece index
 	msgCancel               // 8 index, offest, and length
-	msgNull                 // - use for message without type byte
+	msgRejected      = 16   // - use for message without type byte
 )
 
 // receiveMessage reads a BitTorrent protocol response from the peer and
@@ -80,14 +80,19 @@ func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 	}
 
 	msgType := int(resp[0])
-	if msgType != expectedType {
-		return Message{}, fmt.Errorf("expected message type %d, received %d",
-			expectedType, msgType)
-	}
-
 	payload := []byte{}
 	if length > 1 {
 		payload = resp[1:length]
+	}
+
+	if msgType != expectedType {
+		msg := Message{
+			Header:  MessageHeader{Length: length, Type: msgType},
+			Payload: payload,
+		}
+		return msg,
+			fmt.Errorf("expected message type %d, received %+v",
+				expectedType, msg)
 	}
 
 	// Make sure we received all of the message.
