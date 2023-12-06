@@ -11,24 +11,25 @@ import (
 )
 
 func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
-	// Execute handshake
+	// Execute handshake.
 	_, err := c.Handshake(conn)
 	if err != nil {
 		return err
 	}
 
-	// Wait for 'bitfield' message
+	// Get bitfield message.
 	log.Println("Waiting for bitfield message...")
-	bitfield, err := receiveMessage(conn, 128)
+	bitfield, err := getBitfield(conn)
 	if err != nil {
 		return err
 	}
-	if bitfield.Header.Type != msgBitfield {
-		log.Fatalf("Expected bitfield message (%d), received %d.\n",
-			msgBitfield, bitfield.Header.Type)
-	}
 	log.Printf("Bitfield received: length: %d, type: %d, payload: %b\n",
 		bitfield.Header.Length, bitfield.Header.Type, bitfield.Payload)
+
+	// Make sure peer has the piece we're asking for.
+	if !peerHasPiece(bitfield, pieceIndex) {
+		return fmt.Errorf("peer does not have piece %d", pieceIndex)
+	}
 
 	// Send an 'interested' message
 	_, err = conn.Write([]byte{0, 0, 0, 1, msgInterested})
@@ -116,6 +117,34 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 	// fmt.Println("PIECE ==>", string(piece))
 	fmt.Printf("Total bytes received: %d\n", len(piece))
 	return nil
+}
+
+func getBitfield(conn io.ReadWriter) (Message, error) {
+	bitfield, err := receiveMessage(conn)
+	if err != nil {
+		return bitfield, err
+	}
+	if bitfield.Header.Type != msgBitfield {
+		return bitfield, fmt.Errorf("expected bitfield message (%d), received %d",
+			msgBitfield, bitfield.Header.Type)
+	}
+	return bitfield, err
+}
+
+func peerHasPiece(bitfield Message, piece int) bool {
+	bits := ""
+	for _, bit := range bitfield.Payload {
+		if bit != 0 {
+			bits += fmt.Sprintf("%b", bit)
+		}
+	}
+
+	for i, b := range bits {
+		if i == piece && b == '1' {
+			return true
+		}
+	}
+	return false
 }
 
 func requestPayloadToBytes(req RequestPayload) []byte {

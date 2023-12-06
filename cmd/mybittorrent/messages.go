@@ -47,8 +47,21 @@ const (
 	msgCancel               // 8 index, offest, and length
 )
 
-func receiveMessage(conn io.ReadWriter, expectedLength int) (Message, error) {
-	resp := make([]byte, expectedLength)
+// receiveMessage reads a BitTorrent protocol response from the peer and
+// returns its contents and an error.
+func receiveMessage(conn io.ReadWriter) (Message, error) {
+	// Get length header.
+	resp := make([]byte, 4)
+	_, err := conn.Read(resp)
+	if err != nil {
+		if err != io.EOF {
+			return Message{}, err
+		}
+	}
+	length := int(binary.BigEndian.Uint32(resp))
+
+	// Get the type and payload.
+	resp = make([]byte, length)
 	n, err := conn.Read(resp)
 	if err != nil {
 		if err != io.EOF {
@@ -56,10 +69,13 @@ func receiveMessage(conn io.ReadWriter, expectedLength int) (Message, error) {
 		}
 	}
 
-	length := int(binary.BigEndian.Uint32(resp[0:4]))
-	msgType := int(resp[4])
-	payload := resp[5 : 5+length]
+	msgType := int(resp[0])
+	payload := []byte{}
+	if length > 1 {
+		payload = resp[1:length]
+	}
 
+	// Make sure we received all of the message.
 	if n < length {
 		err = fmt.Errorf("only recieved %d bytes out of %d", n, length)
 	} else {
@@ -74,3 +90,25 @@ func receiveMessage(conn io.ReadWriter, expectedLength int) (Message, error) {
 		Payload: payload,
 	}, err
 }
+
+// sendMessage sends a message to the peer.
+// func sendMessage(conn io.ReadWriter, msg Message) error {
+// 	length := len(msg.Payload) + 1
+// 	msgType := byte(msg.Header.Length)
+// 	lengthPrefix := make([]byte, 4)
+// 	binary.BigEndian.PutUint32(lengthPrefix, uint32(length))
+
+// 	message := append(lengthPrefix, msgType)
+// 	message = append(message, msg.Payload...)
+
+// 	n, err := conn.Write(message)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	if n != len(message) {
+// 		return fmt.Errorf("expected to write %d bytes, only wrote %d",
+// 			n, len(message))
+// 	}
+
+// 	return nil
+// }

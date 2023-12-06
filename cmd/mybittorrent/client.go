@@ -10,16 +10,19 @@ import (
 )
 
 type Client struct {
-	Announce    string      `bencode:"announce"`
-	Info        TorrentInfo `bencode:"info"`
-	InfoHash    string
-	Peers       []string // List of peer IP addresses
-	PieceHashes []string // SHA-1 hashes of Pieces
+	Announce      string      `bencode:"announce"` // URL of the announce server
+	Info          TorrentInfo `bencode:"info"`     // Torrent information
+	InfoHash      string      // SHA-1 hash of the TorrentInfo data
+	Peers         []string    // List of peer IP addresses
+	ConnectedPeer int         // Index of the currently connected peer (-1 means none)
+	PieceHashes   []string    // SHA-1 hashes of Pieces
 }
 
 // NewClient reads a torrent file and populates the a Client struct.
 func NewClient(path string) (Client, error) {
-	c := Client{}
+	c := Client{
+		ConnectedPeer: -1,
+	}
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -46,13 +49,22 @@ func NewClient(path string) (Client, error) {
 	return c, nil
 }
 
-func (c *Client) ConnectToPeer(index int) (net.Conn, error) {
-	conn, err := net.Dial("tcp", c.Peers[index])
+// Connect connects the client to the peer in Peers[peerIndex].
+func (c *Client) Connect(peerIndex int) (net.Conn, error) {
+	conn, err := net.Dial("tcp", c.Peers[peerIndex])
 	if err != nil {
 		return nil, err
 	}
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		return nil, err
+	}
+	c.ConnectedPeer = peerIndex
 	return conn, nil
+}
+
+func (c *Client) Disconnect(conn net.Conn) {
+	conn.Close()
+	c.ConnectedPeer = -1
 }
 
 func (c *Client) Handshake(conn io.ReadWriter) (Peer, error) {
