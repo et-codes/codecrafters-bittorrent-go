@@ -21,7 +21,7 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 	return bencode.Decode(reader)
 }
 
-func decodeTorrentFile(bencodedString string, out *TorrentFile) error {
+func decodeTorrentFile(bencodedString string, out *Client) error {
 	reader := strings.NewReader(bencodedString)
 	return bencode.Unmarshal(reader, out)
 }

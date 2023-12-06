@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-func (tf *TorrentFile) DownloadPiece(outputPath string) error {
+func (c *Client) DownloadPiece(outputPath string) error {
 	// Establish a connection with peer
-	conn, err := net.Dial("tcp", tf.Peers[1])
+	conn, err := net.Dial("tcp", c.Peers[1])
 	if err != nil {
 		return err
 	}
@@ -20,7 +20,7 @@ func (tf *TorrentFile) DownloadPiece(outputPath string) error {
 	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
 
 	// Execute handshake
-	_, err = tf.Handshake(conn, tf.Peers[1])
+	_, err = c.Handshake(conn, c.Peers[1])
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func (tf *TorrentFile) DownloadPiece(outputPath string) error {
 	fmt.Printf("BITFIELD - Length: %d, Type: %d, Message: %b\n", length, msgType, msg)
 
 	// Send an 'interested' message
-	_, err = conn.Write([]byte{0, 0, 0, 1, messageTypes["interested"]})
+	_, err = conn.Write([]byte{0, 0, 0, 1, msgInterested})
 	if err != nil {
 		return err
 	}
@@ -59,18 +59,18 @@ func (tf *TorrentFile) DownloadPiece(outputPath string) error {
 	fmt.Printf("UNCHOKE - Length: %d, Type: %d\n", length, msgType)
 
 	// Send 'request' message for each 16kb block, wait for corresponding 'piece' message
-	blocksRequired := int(math.Ceil(float64(tf.Info.PieceLength) / float64(blockLength)))
+	blocksRequired := int(math.Ceil(float64(c.Info.PieceLength) / float64(blockLength)))
 	bytesReceived := 0
 	pieceIndex := 0
 	piece := []byte{}
 	for b := 0; b < blocksRequired; b++ {
 		blockSize := blockLength
 		if b == blocksRequired-1 {
-			blockSize = tf.Info.PieceLength % blockLength
+			blockSize = c.Info.PieceLength % blockLength
 		}
 		payload := RequestPayload{
 			Index:  pieceIndex,
-			Begin:  bytesReceived,
+			Offset: bytesReceived,
 			Length: blockSize,
 		}
 
@@ -136,7 +136,7 @@ func requestPayloadToBytes(req RequestPayload) []byte {
 	out = append(out, lengthPrefix...)
 
 	// Type: 1 byte
-	out = append(out, messageTypes["request"])
+	out = append(out, msgRequest)
 
 	// Piece index: 4 bytes
 	pieceIndex := make([]byte, 4)
@@ -145,7 +145,7 @@ func requestPayloadToBytes(req RequestPayload) []byte {
 
 	// Offset: 4 bytes
 	offset := make([]byte, 4)
-	binary.BigEndian.PutUint32(pieceIndex, uint32(req.Begin))
+	binary.BigEndian.PutUint32(pieceIndex, uint32(req.Offset))
 	out = append(out, offset...)
 
 	// Length: 4 bytes (usually 16kb)

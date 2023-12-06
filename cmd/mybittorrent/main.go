@@ -51,7 +51,7 @@ func doDecode() {
 
 func doInfo() {
 	path := os.Args[2]
-	tf, err := NewTorrentFile(path)
+	tf, err := NewClient(path)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -61,12 +61,12 @@ func doInfo() {
 
 func doPeers() {
 	path := os.Args[2]
-	tf, err := NewTorrentFile(path)
+	tf, err := NewClient(path)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	tf.PrintPeers()
+	PrintPeers(tf.Peers)
 }
 
 func doHandshake() {
@@ -75,7 +75,7 @@ func doHandshake() {
 		os.Exit(1)
 	}
 	path := os.Args[2]
-	tf, err := NewTorrentFile(path)
+	tf, err := NewClient(path)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -106,7 +106,7 @@ func doDownloadPiece() {
 	path := os.Args[4]
 	piece, _ := strconv.Atoi(os.Args[5])
 
-	tf, err := NewTorrentFile(path)
+	tf, err := NewClient(path)
 	if err != nil {
 		fmt.Println(err)
 		return

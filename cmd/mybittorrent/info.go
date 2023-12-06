@@ -8,9 +8,16 @@ import (
 	"github.com/jackpal/bencode-go"
 )
 
+type TorrentInfo struct {
+	Length      int    `bencode:"length"`
+	Name        string `bencode:"name"`
+	PieceLength int    `bencode:"piece length"`
+	Pieces      string `bencode:"pieces"`
+}
+
 // PieceHashes generates a slice of hex strings representing the SHA-1 hash of
 // each piece in the torrent file.
-func (tf *TorrentFile) HashPieces() {
+func (tf *Client) HashPieces() {
 	hashes := []string{}
 
 	for i := 0; i < len(tf.Info.Pieces); i += 20 {
@@ -22,13 +29,13 @@ func (tf *TorrentFile) HashPieces() {
 }
 
 // InfoHashHex returns the SHA-1 hash of the torrent info dictionary in hex format.
-func (tf *TorrentFile) InfoHashHex() string {
+func (tf *Client) InfoHashHex() string {
 	out := hex.EncodeToString([]byte(tf.InfoHash))
 	return out
 }
 
 // HashInfo calculates the SHA-1 hash of the torrent info dictionary in binary format.
-func (tf *TorrentFile) HashInfo() error {
+func (tf *Client) HashInfo() error {
 	h := sha1.New()
 	err := bencode.Marshal(h, tf.Info)
 	if err != nil {
@@ -38,7 +45,7 @@ func (tf *TorrentFile) HashInfo() error {
 	return nil
 }
 
-func (tf *TorrentFile) PrintInfo() {
+func (tf *Client) PrintInfo() {
 	fmt.Printf("Tracker URL: %s\n", tf.Announce)
 	fmt.Printf("Length: %d\n", tf.Info.Length)
 	fmt.Printf("Info Hash: %s\n", tf.InfoHashHex())

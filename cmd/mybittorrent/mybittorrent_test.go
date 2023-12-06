@@ -32,7 +32,7 @@ func TestDecode(t *testing.T) {
 }
 
 func TestInfo(t *testing.T) {
-	tf, err := NewTorrentFile("../../sample.torrent")
+	c, err := NewClient("../../sample.torrent")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -41,12 +41,12 @@ func TestInfo(t *testing.T) {
 		got  interface{}
 		want interface{}
 	}{
-		"tracker URL": {tf.Announce,
+		"tracker URL": {c.Announce,
 			"http://bittorrent-test-tracker.codecrafters.io/announce"},
-		"length": {tf.Info.Length, 92063},
-		"info hash": {hex.EncodeToString([]byte(tf.InfoHash)),
+		"length": {c.Info.Length, 92063},
+		"info hash": {hex.EncodeToString([]byte(c.InfoHash)),
 			"d69f91e6b2ae4c542468d1073a71d4ea13879a7f"},
-		"piece hashes": {tf.PieceHashes, []string{
+		"piece hashes": {c.PieceHashes, []string{
 			"e876f67a2a8886e8f36b136726c30fa29703022d",
 			"6e2275e604a0766656736e81ff10b55204ad8d35",
 			"f00d937a0213df1982bc8d097227ad9e909acc17",
@@ -63,7 +63,7 @@ func TestInfo(t *testing.T) {
 }
 
 func TestPeers(t *testing.T) {
-	tf, err := NewTorrentFile("../../sample.torrent")
+	c, err := NewClient("../../sample.torrent")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -72,7 +72,7 @@ func TestPeers(t *testing.T) {
 		got  interface{}
 		want interface{}
 	}{
-		"peer list": {tf.Peers, []string{
+		"peer list": {c.Peers, []string{
 			"178.62.82.89:51470",
 			"165.232.33.77:51467",
 			"178.62.85.20:51489",
@@ -89,13 +89,13 @@ func TestPeers(t *testing.T) {
 }
 
 func TestHandshake(t *testing.T) {
-	tf, err := NewTorrentFile("../../sample.torrent")
+	c, err := NewClient("../../sample.torrent")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
 	// Put a handshake response in the read buffer.
-	buf := newHandshakeMessage(tf.InfoHash)
+	buf := newHandshakeMessage(c.InfoHash)
 	conn := bytes.NewBuffer(buf)
 
 	tests := map[string]struct {
@@ -107,7 +107,7 @@ func TestHandshake(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := tf.Handshake(conn, tf.Peers[test.peer])
+			got, err := c.Handshake(conn, c.Peers[test.peer])
 			if err != nil {
 				t.Errorf(err.Error())
 			}

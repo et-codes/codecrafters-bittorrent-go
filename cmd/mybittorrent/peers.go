@@ -40,9 +40,9 @@ func newHandshakeMessage(infoHash string) []byte {
 	return message
 }
 
-func (tf *TorrentFile) Handshake(conn io.ReadWriter, peerAddr string) (Peer, error) {
+func (c *Client) Handshake(conn io.ReadWriter, peerAddr string) (Peer, error) {
 	// Create the handshake message.
-	message := newHandshakeMessage(tf.InfoHash)
+	message := newHandshakeMessage(c.InfoHash)
 
 	// Send the handshake.
 	n, err := conn.Write(message)
@@ -57,12 +57,6 @@ func (tf *TorrentFile) Handshake(conn io.ReadWriter, peerAddr string) (Peer, err
 		if err != io.EOF {
 			return Peer{}, err
 		}
-	}
-
-	// Unmarshal the response into a HandshakeMessage.
-	peer, err := parseHandshake(resp)
-	if err != nil {
-		return peer, err
 	}
 
 	return parseHandshake(resp)
@@ -83,9 +77,9 @@ func parseHandshake(resp []byte) (Peer, error) {
 	return result, nil
 }
 
-func (tf *TorrentFile) peerList() error {
+func (c *Client) peerList() error {
 	peers := []string{}
-	pr, err := tf.discoverPeers()
+	pr, err := c.discoverPeers()
 	if err != nil {
 		return err
 	}
@@ -99,15 +93,15 @@ func (tf *TorrentFile) peerList() error {
 		peers = append(peers, peerStr)
 	}
 
-	tf.Peers = peers
+	c.Peers = peers
 
 	return nil
 }
 
-func (tf *TorrentFile) discoverPeers() (PeerResponse, error) {
+func (c *Client) discoverPeers() (PeerResponse, error) {
 	peerResp := PeerResponse{}
 
-	addr, err := peerRequestURL(tf.Announce, tf.InfoHash, tf.Info.Length)
+	addr, err := peerRequestURL(c.Announce, c.InfoHash, c.Info.Length)
 	if err != nil {
 		fmt.Println(err)
 		return peerResp, err
@@ -155,8 +149,8 @@ func peerRequestURL(rawURL string, infoHash string, infoLength int) (string, err
 	return addr.String(), nil
 }
 
-func (tf *TorrentFile) PrintPeers() {
-	for _, peer := range tf.Peers {
+func PrintPeers(peers []string) {
+	for _, peer := range peers {
 		fmt.Println(peer)
 	}
 }
