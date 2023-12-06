@@ -52,7 +52,7 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 			}
 
 			// Send request message.
-			log.Printf("Sending request message for block %d/%d at offset %d...\n", blockNum, blocksRequired, pieceBytesReceived)
+			log.Printf("Sending request message for block %d/%d at offset %d: %+v...\n", blockNum, blocksRequired, pieceBytesReceived, payload)
 			err := sendMessage(conn, request)
 			if err != nil {
 				return err
@@ -76,17 +76,14 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 
 			block = append(block, partialBlock...)
 			blockBytesReceived += len(partialBlock)
+			pieceBytesReceived += blockBytesReceived
 		}
 
 		log.Printf("Block %d/%d received %d bytes.\n", blockNum, blocksRequired, blockBytesReceived)
-		pieceBytesReceived += blockBytesReceived
 		pieceData = append(pieceData, block...)
-
-		// TODO figure out why we have to wait before reading message...
-		time.Sleep(500 * time.Millisecond)
 	}
 
-	log.Println(string(pieceData))
+	log.Printf("Piece download complete, downloaded %d/%d bytes.\n", pieceBytesReceived, c.Info.PieceLength)
 
 	return nil
 }
@@ -157,7 +154,7 @@ func requestPayloadToBytes(req RequestPayload) []byte {
 
 	// Offset: 4 bytes
 	offset := make([]byte, 4)
-	binary.BigEndian.PutUint32(pieceIndex, req.Offset)
+	binary.BigEndian.PutUint32(offset, req.Offset)
 	out = append(out, offset...)
 
 	// Length: 4 bytes (usually 16kb)
