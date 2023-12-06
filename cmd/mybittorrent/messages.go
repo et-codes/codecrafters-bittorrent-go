@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 )
 
 // MessageHeader represents the message length and type.
@@ -19,9 +20,9 @@ type Message struct {
 
 // RequestPayload is the payload for a Request message.
 type RequestPayload struct {
-	Index  int // piece index
-	Offset int // byte offset within the piece
-	Length int // length of the block (16kb)
+	Index  uint32 // piece index
+	Offset uint32 // byte offset within the piece
+	Length uint32 // length of the block (16kb)
 }
 
 // PiecePayload is the payload of a Piece message.
@@ -58,8 +59,12 @@ func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 		if err != io.EOF {
 			return Message{}, err
 		}
+		log.Println("EOF received.")
 	}
 	length := int(binary.BigEndian.Uint32(resp))
+	if length == 0 {
+		return Message{}, fmt.Errorf("message received has 0 length")
+	}
 
 	// Get the type and payload.
 	resp = make([]byte, length)
@@ -68,6 +73,10 @@ func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 		if err != io.EOF {
 			return Message{}, err
 		}
+	}
+	if len(resp) == 0 {
+		return Message{}, fmt.Errorf(
+			"no message type or payload received, expected length %d", length)
 	}
 
 	msgType := int(resp[0])
