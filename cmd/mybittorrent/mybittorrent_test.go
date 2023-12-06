@@ -99,15 +99,14 @@ func TestHandshake(t *testing.T) {
 	conn := bytes.NewBuffer(buf)
 
 	tests := map[string]struct {
-		peer int
 		want string
 	}{
-		"handshake has correct peer ID": {0, PeerID},
+		"handshake has correct peer ID": {PeerID},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := c.Handshake(conn, c.Peers[test.peer])
+			got, err := c.Handshake(conn)
 			if err != nil {
 				t.Errorf(err.Error())
 			}

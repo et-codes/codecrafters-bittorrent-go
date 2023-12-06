@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"io"
+	"log"
 	"net/http"
 	"net/url"
 
@@ -25,56 +25,6 @@ type Peer struct {
 	Reserved []byte // should be {0, 0, 0, 0, 0, 0, 0, 0}
 	InfoHash string // SHA-1 hash of torrent file info
 	PeerID   string // ID of the peer
-}
-
-func newHandshakeMessage(infoHash string) []byte {
-	protocolLength := byte(19)
-	protocol := []byte("BitTorrent protocol")
-	reserved := make([]byte, 8)
-
-	message := append([]byte{protocolLength}, protocol...)
-	message = append(message, reserved...)
-	message = append(message, []byte(infoHash)...)
-	message = append(message, []byte(PeerID)...)
-
-	return message
-}
-
-func (c *Client) Handshake(conn io.ReadWriter, peerAddr string) (Peer, error) {
-	// Create the handshake message.
-	message := newHandshakeMessage(c.InfoHash)
-
-	// Send the handshake.
-	n, err := conn.Write(message)
-	if err != nil {
-		return Peer{}, err
-	}
-
-	// Wait for the response.
-	resp := make([]byte, n)
-	_, err = conn.Read(resp)
-	if err != nil {
-		if err != io.EOF {
-			return Peer{}, err
-		}
-	}
-
-	return parseHandshake(resp)
-}
-
-func parseHandshake(resp []byte) (Peer, error) {
-	result := Peer{}
-	if len(resp) != 68 {
-		return result, fmt.Errorf("expect response length 68, got %d", len(resp))
-	}
-
-	// Byte 0 should be 19, the length of the following protocol string
-	result.Protocol = string(resp[1:20])  // 19 bytes
-	result.Reserved = resp[20:28]         // 8 bytes
-	result.InfoHash = string(resp[28:48]) // 20 bytes
-	result.PeerID = string(resp[48:])     // 20 bytes
-
-	return result, nil
 }
 
 func (c *Client) peerList() error {
@@ -103,25 +53,24 @@ func (c *Client) discoverPeers() (PeerResponse, error) {
 
 	addr, err := peerRequestURL(c.Announce, c.InfoHash, c.Info.Length)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return peerResp, err
 	}
 
 	res, err := http.Get(addr)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return peerResp, err
 	}
 	if res.StatusCode != http.StatusOK {
-		fmt.Printf("Response code %d received.\n", res.StatusCode)
+		log.Printf("Response code %d received.\n", res.StatusCode)
 		return peerResp, err
 	}
 
 	err = bencode.Unmarshal(res.Body, &peerResp)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return peerResp, err
-
 	}
 	res.Body.Close()
 
@@ -131,7 +80,6 @@ func (c *Client) discoverPeers() (PeerResponse, error) {
 func peerRequestURL(rawURL string, infoHash string, infoLength int) (string, error) {
 	addr, err := url.Parse(rawURL)
 	if err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 
@@ -153,8 +101,4 @@ func PrintPeers(peers []string) {
 	for _, peer := range peers {
 		fmt.Println(peer)
 	}
-}
-
-func PrintHandshake(handshake Peer) {
-	fmt.Printf("Peer ID: %x\n", handshake.PeerID)
 }

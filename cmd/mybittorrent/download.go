@@ -5,22 +5,13 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net"
 	"os"
 	"time"
 )
 
-func (c *Client) DownloadPiece(outputPath string) error {
-	// Establish a connection with peer
-	conn, err := net.Dial("tcp", c.Peers[1])
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-	conn.SetReadDeadline(time.Now().Add(3 * time.Second))
-
+func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
 	// Execute handshake
-	_, err = c.Handshake(conn, c.Peers[1])
+	_, err := c.Handshake(conn)
 	if err != nil {
 		return err
 	}
@@ -61,7 +52,6 @@ func (c *Client) DownloadPiece(outputPath string) error {
 	// Send 'request' message for each 16kb block, wait for corresponding 'piece' message
 	blocksRequired := int(math.Ceil(float64(c.Info.PieceLength) / float64(blockLength)))
 	bytesReceived := 0
-	pieceIndex := 0
 	piece := []byte{}
 	for b := 0; b < blocksRequired; b++ {
 		blockSize := blockLength
@@ -121,7 +111,7 @@ func (c *Client) DownloadPiece(outputPath string) error {
 			fmt.Printf("===> Received %d bytes in block %d.\n", bytesReceived, b)
 		}
 		piece = append(piece, block...)
-		fmt.Println(string(block))
+		// fmt.Println(string(block))
 	}
 	// fmt.Println("PIECE ==>", string(piece))
 	fmt.Printf("Total bytes received: %d\n", len(piece))

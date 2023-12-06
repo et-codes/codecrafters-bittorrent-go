@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -17,8 +17,7 @@ const (
 
 func main() {
 	if len(os.Args) < 3 {
-		fmt.Println("Insufficient number of arguments given.")
-		os.Exit(1)
+		log.Fatal("Insufficient number of arguments given.")
 	}
 	command := os.Args[1]
 
@@ -34,8 +33,7 @@ func main() {
 	case cmdDownloadPiece:
 		doDownloadPiece()
 	default:
-		fmt.Println("Unknown command: " + command)
-		os.Exit(1)
+		log.Fatal("Unknown command: " + command)
 	}
 }
 
@@ -43,8 +41,7 @@ func doDecode() {
 	bencodedValue := os.Args[2]
 	decoded, err := Decode(bencodedValue)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	printDecodeOutput(decoded)
 }
@@ -53,8 +50,7 @@ func doInfo() {
 	path := os.Args[2]
 	tf, err := NewClient(path)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	tf.PrintInfo()
 }
@@ -63,54 +59,58 @@ func doPeers() {
 	path := os.Args[2]
 	tf, err := NewClient(path)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	PrintPeers(tf.Peers)
 }
 
 func doHandshake() {
 	if len(os.Args) < 4 {
-		fmt.Println("Insufficient number of arguments given.")
-		os.Exit(1)
+		log.Fatal("Insufficient number of arguments given.")
 	}
 	path := os.Args[2]
-	tf, err := NewClient(path)
+	c, err := NewClient(path)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
-	peer := os.Args[3]
-	// Establish a connection with peer.
-	conn, err := net.Dial("tcp", tf.Peers[0])
+	peer := os.Args[3] // peer ip_address:port
+
+	log.Printf("Connecting to peer at %s...\n", peer)
+	conn, err := net.Dial("tcp", peer)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	defer conn.Close()
-	handshake, err := tf.Handshake(conn, peer)
+
+	handshake, err := c.Handshake(conn)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
+
 	PrintHandshake(handshake)
 }
 
 func doDownloadPiece() {
 	if len(os.Args) < 6 || os.Args[2] != "-o" {
-		fmt.Println("Syntax: mybittorrent download_piece -o " +
+		log.Fatal("Syntax: mybittorrent download_piece -o " +
 			"[OUTPUT_PATH] [TORRENT_PATH] [PIECE_INDEX]")
-		os.Exit(1)
 	}
 	outputPath := os.Args[3]
 	path := os.Args[4]
 	piece, _ := strconv.Atoi(os.Args[5])
 
-	tf, err := NewClient(path)
+	c, err := NewClient(path)
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
-	fmt.Printf("Downloading piece %d from %s to %s\n", piece, path, outputPath)
-	tf.DownloadPiece(outputPath)
+
+	// TODO manage connections to multiple peers
+	conn, err := c.ConnectToPeer(0)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	log.Printf("Downloading piece %d from %s to %s\n", piece, path, outputPath)
+	c.DownloadPiece(conn, piece, outputPath)
 }
