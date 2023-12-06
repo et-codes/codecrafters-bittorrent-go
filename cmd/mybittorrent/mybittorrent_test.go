@@ -118,4 +118,31 @@ func TestHandshake(t *testing.T) {
 	}
 }
 
+func TestPeerHasPiece(t *testing.T) {
+	tests := map[string]struct {
+		bitfield []byte
+		piece    int
+		want     bool
+	}{
+		"detects bit 0":                {[]byte{byte(224)}, 0, true},
+		"detects bit 1":                {[]byte{byte(224)}, 1, true},
+		"detects bit 2":                {[]byte{byte(224)}, 2, true},
+		"does not detect bit 3":        {[]byte{byte(224)}, 3, false},
+		"works with more than one bit": {[]byte{byte(224), byte(1)}, 15, true},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			bitfield := Message{
+				Payload: test.bitfield,
+			}
+			got := peerHasPiece(bitfield, test.piece)
+			if got != test.want {
+				t.Errorf("got %t, wanted %t",
+					got, test.want)
+			}
+		})
+	}
+}
+
 func TestDownloadPiece(t *testing.T) {}

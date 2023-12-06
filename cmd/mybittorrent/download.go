@@ -7,7 +7,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"time"
 )
 
 func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
@@ -38,9 +37,6 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 		if err != nil {
 			return err
 		}
-
-		// Pause?
-		time.Sleep(500 * time.Millisecond)
 
 		// Read header
 		header := make([]byte, 13)
@@ -108,9 +104,7 @@ func initiateDownload(conn io.ReadWriter, pieceIndex int, infoHash string) error
 
 	log.Println("Sending interested message...")
 	interested := Message{
-		Header: MessageHeader{
-			Type: msgInterested,
-		},
+		Header: MessageHeader{Type: msgInterested},
 	}
 	err = sendMessage(conn, interested)
 	if err != nil {
@@ -128,17 +122,14 @@ func initiateDownload(conn io.ReadWriter, pieceIndex int, infoHash string) error
 	return nil
 }
 
-func peerHasPiece(bitfield Message, piece int) bool {
-	bits := ""
-	for _, bit := range bitfield.Payload {
-		if bit != 0 {
-			bits += fmt.Sprintf("%b", bit)
-		}
-	}
-
-	for i, b := range bits {
-		if i == piece && b == '1' {
-			return true
+func peerHasPiece(bitfield Message, pieceIndex int) bool {
+	i := 0
+	for _, bite := range bitfield.Payload {
+		for j := 7; j >= 0; j-- {
+			if bite>>j&1 == 1 && i == pieceIndex {
+				return true
+			}
+			i++
 		}
 	}
 	return false
