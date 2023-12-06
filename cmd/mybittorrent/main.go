@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -115,4 +116,6 @@ func doDownloadPiece() {
 	if err := c.DownloadPiece(conn, piece, outputPath); err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Printf("Piece %d downloaded to %s.\n", piece, outputPath)
 }

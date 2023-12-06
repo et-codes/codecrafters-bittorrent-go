@@ -95,6 +95,7 @@ func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 				expectedType, msg)
 	}
 
+	// TODO: should we loop until the entire message is received?
 	// Make sure we received all of the message.
 	if n < length {
 		err = fmt.Errorf("only recieved %d bytes out of %d", n, length)
