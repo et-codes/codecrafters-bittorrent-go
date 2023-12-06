@@ -45,11 +45,12 @@ const (
 	msgRequest              // 6 index, offest, and length
 	msgPiece                // 7 index, offest, and piece index
 	msgCancel               // 8 index, offest, and length
+	msgNull                 // - use for message without type byte
 )
 
 // receiveMessage reads a BitTorrent protocol response from the peer and
 // returns its contents and an error.
-func receiveMessage(conn io.ReadWriter) (Message, error) {
+func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 	// Get length header.
 	resp := make([]byte, 4)
 	_, err := conn.Read(resp)
@@ -70,6 +71,11 @@ func receiveMessage(conn io.ReadWriter) (Message, error) {
 	}
 
 	msgType := int(resp[0])
+	if msgType != expectedType {
+		return Message{}, fmt.Errorf("expected message type %d, received %d",
+			expectedType, msgType)
+	}
+
 	payload := []byte{}
 	if length > 1 {
 		payload = resp[1:length]
@@ -92,23 +98,23 @@ func receiveMessage(conn io.ReadWriter) (Message, error) {
 }
 
 // sendMessage sends a message to the peer.
-// func sendMessage(conn io.ReadWriter, msg Message) error {
-// 	length := len(msg.Payload) + 1
-// 	msgType := byte(msg.Header.Length)
-// 	lengthPrefix := make([]byte, 4)
-// 	binary.BigEndian.PutUint32(lengthPrefix, uint32(length))
+func sendMessage(conn io.ReadWriter, msg Message) error {
+	length := len(msg.Payload) + 1
+	msgType := byte(msg.Header.Type)
+	lengthPrefix := make([]byte, 4)
+	binary.BigEndian.PutUint32(lengthPrefix, uint32(length))
 
-// 	message := append(lengthPrefix, msgType)
-// 	message = append(message, msg.Payload...)
+	message := append(lengthPrefix, msgType)
+	message = append(message, msg.Payload...)
 
-// 	n, err := conn.Write(message)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	if n != len(message) {
-// 		return fmt.Errorf("expected to write %d bytes, only wrote %d",
-// 			n, len(message))
-// 	}
+	n, err := conn.Write(message)
+	if err != nil {
+		return err
+	}
+	if n != len(message) {
+		return fmt.Errorf("expected to write %d bytes, only wrote %d",
+			n, len(message))
+	}
 
-// 	return nil
-// }
+	return nil
+}

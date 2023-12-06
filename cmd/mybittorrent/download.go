@@ -11,44 +11,11 @@ import (
 )
 
 func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
-	// Execute handshake.
-	_, err := c.Handshake(conn)
+	// Handshake and run preliminary protocol.
+	err := initiateDownload(conn, pieceIndex, c.InfoHash)
 	if err != nil {
 		return err
 	}
-
-	// Get bitfield message.
-	log.Println("Waiting for bitfield message...")
-	bitfield, err := getBitfield(conn)
-	if err != nil {
-		return err
-	}
-	log.Printf("Bitfield received: length: %d, type: %d, payload: %b\n",
-		bitfield.Header.Length, bitfield.Header.Type, bitfield.Payload)
-
-	// Make sure peer has the piece we're asking for.
-	if !peerHasPiece(bitfield, pieceIndex) {
-		return fmt.Errorf("peer does not have piece %d", pieceIndex)
-	}
-
-	// Send an 'interested' message
-	_, err = conn.Write([]byte{0, 0, 0, 1, msgInterested})
-	if err != nil {
-		return err
-	}
-
-	// Receive 'unchoke' message back
-	resp := make([]byte, 5)
-	_, err = conn.Read(resp)
-	if err != nil {
-		if err != io.EOF {
-			return err
-		}
-	}
-
-	length := binary.BigEndian.Uint32(resp[0:4])
-	msgType := int(resp[4])
-	fmt.Printf("UNCHOKE - Length: %d, Type: %d\n", length, msgType)
 
 	// Send 'request' message for each 16kb block, wait for corresponding 'piece' message
 	blocksRequired := int(math.Ceil(float64(c.Info.PieceLength) / float64(blockLength)))
@@ -119,16 +86,46 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 	return nil
 }
 
-func getBitfield(conn io.ReadWriter) (Message, error) {
-	bitfield, err := receiveMessage(conn)
+func initiateDownload(conn io.ReadWriter, pieceIndex int, infoHash string) error {
+	// Execute handshake.
+	_, err := Handshake(conn, infoHash)
 	if err != nil {
-		return bitfield, err
+		return err
 	}
-	if bitfield.Header.Type != msgBitfield {
-		return bitfield, fmt.Errorf("expected bitfield message (%d), received %d",
-			msgBitfield, bitfield.Header.Type)
+
+	// Get bitfield message.
+	log.Println("Waiting for bitfield message...")
+	bitfield, err := receiveMessage(conn, msgBitfield)
+	if err != nil {
+		return err
 	}
-	return bitfield, err
+	log.Printf("Bitfield received: %+v\n", bitfield)
+
+	// Make sure peer has the piece we're asking for.
+	if !peerHasPiece(bitfield, pieceIndex) {
+		return fmt.Errorf("peer does not have piece %d", pieceIndex)
+	}
+
+	log.Println("Sending interested message...")
+	interested := Message{
+		Header: MessageHeader{
+			Type: msgInterested,
+		},
+	}
+	err = sendMessage(conn, interested)
+	if err != nil {
+		return err
+	}
+
+	// Get 'unchoke' message
+	log.Println("Waiting for unchoke message...")
+	unchoke, err := receiveMessage(conn, msgUnchoke)
+	if err != nil {
+		return err
+	}
+	log.Printf("Unchoke received: %+v\n", unchoke)
+
+	return nil
 }
 
 func peerHasPiece(bitfield Message, piece int) bool {

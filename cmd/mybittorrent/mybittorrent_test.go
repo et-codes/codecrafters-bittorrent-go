@@ -106,7 +106,7 @@ func TestHandshake(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := c.Handshake(conn)
+			got, err := Handshake(conn, c.InfoHash)
 			if err != nil {
 				t.Errorf(err.Error())
 			}

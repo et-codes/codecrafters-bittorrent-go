@@ -4,6 +4,9 @@ lint:
 test: lint
 	@go test -v ./...
 
+test_all: test
+	@codecrafters test
+
 info:
 	./your_bittorrent.sh info sample.torrent
 

@@ -10,8 +10,8 @@ import (
 )
 
 type Client struct {
-	Announce      string      `bencode:"announce"` // URL of the announce server
-	Info          TorrentInfo `bencode:"info"`     // Torrent information
+	Announce      string      // URL of the announce server
+	Info          TorrentInfo // Torrent information
 	InfoHash      string      // SHA-1 hash of the TorrentInfo data
 	Peers         []string    // List of peer IP addresses
 	ConnectedPeer int         // Index of the currently connected peer (-1 means none)
@@ -67,9 +67,9 @@ func (c *Client) Disconnect(conn net.Conn) {
 	c.ConnectedPeer = -1
 }
 
-func (c *Client) Handshake(conn io.ReadWriter) (Peer, error) {
+func Handshake(conn io.ReadWriter, infoHash string) (Peer, error) {
 	// Create the handshake message.
-	message := newHandshakeMessage(c.InfoHash)
+	message := newHandshakeMessage(infoHash)
 
 	log.Println("Sending handshake...")
 	n, err := conn.Write(message)

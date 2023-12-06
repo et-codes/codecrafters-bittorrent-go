@@ -82,7 +82,7 @@ func doHandshake() {
 	}
 	defer conn.Close()
 
-	handshake, err := c.Handshake(conn)
+	handshake, err := Handshake(conn, c.InfoHash)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func doDownloadPiece() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer conn.Close()
+	defer c.Disconnect(conn)
 
 	log.Printf("Downloading piece %d from %s to %s\n", piece, path, outputPath)
 	if err := c.DownloadPiece(conn, piece, outputPath); err != nil {
