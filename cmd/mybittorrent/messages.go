@@ -13,8 +13,8 @@ type RequestPayload struct {
 }
 
 type PiecePayload struct {
-	Index int    // piece index
-	Begin int    // byte offset within the piece
+	Index uint32 // piece index
+	Begin uint32 // byte offset within the piece
 	Block []byte // data for the piece
 }
 

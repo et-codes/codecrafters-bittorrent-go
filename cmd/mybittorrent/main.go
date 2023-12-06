@@ -112,5 +112,5 @@ func doDownloadPiece() {
 		return
 	}
 	fmt.Printf("Downloading piece %d from %s to %s\n", piece, path, outputPath)
-	tf.DownloadPiece()
+	tf.DownloadPiece(outputPath)
 }
