@@ -12,7 +12,7 @@ import (
 
 const PeerID = "00112233445566778899" // Peer ID used for this client (20 bytes)
 
-type PeerResponse struct {
+type GetPeersResponse struct {
 	Complete    int    `bencode:"complete"`
 	Incomplete  int    `bencode:"incomplete"`
 	Interval    int    `bencode:"interval"`
@@ -27,6 +27,8 @@ type Peer struct {
 	PeerID   string // ID of the peer
 }
 
+// peerList discovers peers and adds their IP addresses to the Peers
+// field of the Client struct.
 func (c *Client) peerList() error {
 	peers := []string{}
 	pr, err := c.discoverPeers()
@@ -48,8 +50,9 @@ func (c *Client) peerList() error {
 	return nil
 }
 
-func (c *Client) discoverPeers() (PeerResponse, error) {
-	peerResp := PeerResponse{}
+// discoverPeers gets a list of peers from the announce URL.
+func (c *Client) discoverPeers() (GetPeersResponse, error) {
+	peerResp := GetPeersResponse{}
 
 	addr, err := peerRequestURL(c.Announce, c.InfoHash, c.Info.Length)
 	if err != nil {

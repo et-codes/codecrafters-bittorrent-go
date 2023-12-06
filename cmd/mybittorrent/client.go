@@ -1,12 +1,16 @@
 package main
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
 	"time"
+
+	"github.com/jackpal/bencode-go"
 )
 
 type Client struct {
@@ -16,6 +20,13 @@ type Client struct {
 	Peers         []string    // List of peer IP addresses
 	ConnectedPeer int         // Index of the currently connected peer (-1 means none)
 	PieceHashes   []string    // SHA-1 hashes of Pieces
+}
+
+type TorrentInfo struct {
+	Length      int    `bencode:"length"`
+	Name        string `bencode:"name"`
+	PieceLength int    `bencode:"piece length"`
+	Pieces      string `bencode:"pieces"`
 }
 
 // NewClient reads a torrent file and populates the a Client struct.
@@ -34,12 +45,13 @@ func NewClient(path string) (Client, error) {
 		return c, err
 	}
 
-	err = c.HashInfo()
+	infoHash, err := hashInfo(c.Info)
 	if err != nil {
 		return c, err
 	}
+	c.InfoHash = infoHash
 
-	c.HashPieces()
+	c.PieceHashes = hashPieces(c.Info.Pieces)
 
 	err = c.peerList()
 	if err != nil {
@@ -62,7 +74,7 @@ func (c *Client) Connect(peerIndex int) (net.Conn, error) {
 	return conn, nil
 }
 
-func (c *Client) Disconnect(conn net.Conn) {
+func (c *Client) Close(conn net.Conn) {
 	conn.Close()
 	c.ConnectedPeer = -1
 }
@@ -95,8 +107,49 @@ func Handshake(conn io.ReadWriter, infoHash string) (Peer, error) {
 	return peer, nil
 }
 
+func (c *Client) PrintInfo() {
+	fmt.Printf("Tracker URL: %s\n", c.Announce)
+	fmt.Printf("Length: %d\n", c.Info.Length)
+	fmt.Printf("Info Hash: %s\n", infoHashHex(c.InfoHash))
+	fmt.Printf("Piece Length: %d\n", c.Info.PieceLength)
+	fmt.Println("Piece Hashes:")
+	for _, hash := range c.PieceHashes {
+		fmt.Println(hash)
+	}
+}
+
 func PrintHandshake(handshake Peer) {
 	fmt.Printf("Peer ID: %x\n", handshake.PeerID)
+}
+
+// hashPieces generates a slice of hex strings representing the SHA-1 hash of
+// each piece in the torrent file.
+func hashPieces(pieces string) []string {
+	hashes := []string{}
+
+	for i := 0; i < len(pieces); i += 20 {
+		piece := []byte(pieces[i : i+20])
+		hashes = append(hashes, hex.EncodeToString(piece))
+	}
+
+	return hashes
+}
+
+// infoHashHex returns the SHA-1 hash of the torrent info dictionary in hex format.
+func infoHashHex(infoHash string) string {
+	return hex.EncodeToString([]byte(infoHash))
+}
+
+// hashInfo calculates the SHA-1 hash of the torrent info dictionary in binary
+// format and stores it in the InfoHash field of the Client struct.
+func hashInfo(info TorrentInfo) (string, error) {
+	h := sha1.New()
+	err := bencode.Marshal(h, info)
+	if err != nil {
+		return "", err
+	}
+	infoHash := string(h.Sum(nil))
+	return infoHash, nil
 }
 
 func newHandshakeMessage(infoHash string) []byte {

@@ -109,7 +109,7 @@ func doDownloadPiece() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer c.Disconnect(conn)
+	defer c.Close(conn)
 
 	log.Printf("Downloading piece %d from %s to %s\n", piece, path, outputPath)
 	if err := c.DownloadPiece(conn, piece, outputPath); err != nil {
