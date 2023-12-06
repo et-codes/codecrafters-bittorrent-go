@@ -105,7 +105,7 @@ func doDownloadPiece() {
 	}
 
 	// TODO manage connections to multiple peers
-	conn, err := c.ConnectToPeer(0)
+	conn, err := c.ConnectToPeer(1)
 	if err != nil {
 		log.Fatal(err)
 	}

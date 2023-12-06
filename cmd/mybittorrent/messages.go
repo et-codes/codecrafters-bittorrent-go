@@ -1,9 +1,20 @@
 package main
 
+import (
+	"encoding/binary"
+	"fmt"
+	"io"
+)
+
 // MessageHeader represents the message length and type.
 type MessageHeader struct {
-	Length [4]byte // 4 bytes
-	Type   byte    // 1 byte
+	Length int
+	Type   int
+}
+
+type Message struct {
+	Header  MessageHeader // Header of the message
+	Payload []byte        // Message payload
 }
 
 // RequestPayload is the payload for a Request message.
@@ -35,3 +46,31 @@ const (
 	msgPiece                // 7 index, offest, and piece index
 	msgCancel               // 8 index, offest, and length
 )
+
+func receiveMessage(conn io.ReadWriter, expectedLength int) (Message, error) {
+	resp := make([]byte, expectedLength)
+	n, err := conn.Read(resp)
+	if err != nil {
+		if err != io.EOF {
+			return Message{}, err
+		}
+	}
+
+	length := int(binary.BigEndian.Uint32(resp[0:4]))
+	msgType := int(resp[4])
+	payload := resp[5 : 5+length]
+
+	if n < length {
+		err = fmt.Errorf("only recieved %d bytes out of %d", n, length)
+	} else {
+		err = nil
+	}
+
+	return Message{
+		Header: MessageHeader{
+			Length: length,
+			Type:   msgType,
+		},
+		Payload: payload,
+	}, err
+}

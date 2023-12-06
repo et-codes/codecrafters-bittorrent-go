@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"os"
 	"time"
@@ -17,7 +18,26 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 	}
 
 	// Wait for 'bitfield' message
-	resp := make([]byte, blockLength+9)
+	log.Println("Waiting for bitfield message...")
+	bitfield, err := receiveMessage(conn, 128)
+	if err != nil {
+		return err
+	}
+	if bitfield.Header.Type != msgBitfield {
+		log.Fatalf("Expected bitfield message (%d), received %d.\n",
+			msgBitfield, bitfield.Header.Type)
+	}
+	log.Printf("Bitfield received: length: %d, type: %d, payload: %b\n",
+		bitfield.Header.Length, bitfield.Header.Type, bitfield.Payload)
+
+	// Send an 'interested' message
+	_, err = conn.Write([]byte{0, 0, 0, 1, msgInterested})
+	if err != nil {
+		return err
+	}
+
+	// Receive 'unchoke' message back
+	resp := make([]byte, 5)
 	_, err = conn.Read(resp)
 	if err != nil {
 		if err != io.EOF {
@@ -27,26 +47,6 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 
 	length := binary.BigEndian.Uint32(resp[0:4])
 	msgType := int(resp[4])
-	msg := resp[5 : 5+length-1]
-	fmt.Printf("BITFIELD - Length: %d, Type: %d, Message: %b\n", length, msgType, msg)
-
-	// Send an 'interested' message
-	_, err = conn.Write([]byte{0, 0, 0, 1, msgInterested})
-	if err != nil {
-		return err
-	}
-
-	// Receive 'unchoke' message back
-	resp = make([]byte, 5)
-	_, err = conn.Read(resp)
-	if err != nil {
-		if err != io.EOF {
-			return err
-		}
-	}
-
-	length = binary.BigEndian.Uint32(resp[0:4])
-	msgType = int(resp[4])
 	fmt.Printf("UNCHOKE - Length: %d, Type: %d\n", length, msgType)
 
 	// Send 'request' message for each 16kb block, wait for corresponding 'piece' message
