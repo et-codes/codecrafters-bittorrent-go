@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 )
 
 // MessageHeader represents the message length and type.
@@ -52,53 +51,58 @@ const (
 // receiveMessage reads a BitTorrent protocol response from the peer and
 // returns its contents and an error.
 func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
-	// Get length header.
-	resp := make([]byte, 4)
-	_, err := conn.Read(resp)
+	// Get length and type header.
+	header := make([]byte, 5)
+	_, err := io.ReadFull(conn, header)
 	if err != nil {
 		if err != io.EOF {
 			return Message{}, err
 		}
-		log.Println("EOF received.")
 	}
-	length := int(binary.BigEndian.Uint32(resp))
+
+	length := int(binary.BigEndian.Uint32(header[:4]))
 	if length == 0 {
 		return Message{}, fmt.Errorf("message received has 0 length")
 	}
 
-	// Get the type and payload.
-	resp = make([]byte, length)
-	n, err := conn.Read(resp)
-	if err != nil {
-		if err != io.EOF {
-			return Message{}, err
-		}
-	}
-	if len(resp) == 0 {
-		return Message{}, fmt.Errorf(
-			"no message type or payload received, expected length %d", length)
-	}
-
-	msgType := int(resp[0])
-	payload := []byte{}
-	if length > 1 {
-		payload = resp[1:length]
-	}
-
+	msgType := int(header[4])
 	if msgType != expectedType {
 		msg := Message{
-			Header:  MessageHeader{Length: length, Type: msgType},
-			Payload: payload,
+			Header: MessageHeader{Length: length, Type: msgType},
 		}
 		return msg,
 			fmt.Errorf("expected message type %d, received %+v",
 				expectedType, msg)
 	}
 
+	if length == 1 {
+		return Message{
+			Header: MessageHeader{Length: length, Type: msgType},
+		}, nil
+	}
+
+	// Get the payload.
+	payload := make([]byte, length-1)
+	bytesRead := 0
+	for bytesRead < length-1 {
+		n, err := io.ReadFull(conn, payload)
+		if err != nil {
+			if err != io.EOF {
+				return Message{}, err
+			}
+		}
+		bytesRead += n
+	}
+
+	if len(payload) == 0 {
+		return Message{}, fmt.Errorf(
+			"no message type or payload received, expected length %d", length)
+	}
+
 	// TODO: should we loop until the entire message is received?
 	// Make sure we received all of the message.
-	if n < length {
-		err = fmt.Errorf("only recieved %d bytes out of %d", n, length)
+	if bytesRead < length-1 {
+		err = fmt.Errorf("only recieved %d bytes out of %d", bytesRead, length-1)
 	} else {
 		err = nil
 	}

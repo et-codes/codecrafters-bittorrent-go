@@ -9,7 +9,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"time"
 )
 
 func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
@@ -37,7 +36,10 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 			blockBytesExpected = c.Info.PieceLength - pieceBytesReceived
 		}
 
-		block, _ := downloadBlock(conn, pieceIndex, pieceBytesReceived, blockBytesExpected)
+		block, err := downloadBlock(conn, pieceIndex, pieceBytesReceived, blockBytesExpected)
+		if err != nil {
+			return err
+		}
 
 		pieceBytesReceived += len(block)
 		log.Printf("Block %d/%d received %d bytes.\n", blockNum, blocksRequired, len(block))
@@ -116,10 +118,10 @@ func downloadBlock(conn io.ReadWriter, pieceIndex, offset, blockBytesExpected in
 		}
 
 		// TODO figure out why we have to wait before reading message...
-		time.Sleep(500 * time.Millisecond)
+		// time.Sleep(300 * time.Millisecond)
 
 		// Get piece message.
-		log.Println("Waiting for piece message...")
+		// log.Println("Waiting for piece message...")
 		piece, err := receiveMessage(conn, msgPiece)
 		if err != nil {
 			if piece.Header.Type == msgRejected {
@@ -127,9 +129,9 @@ func downloadBlock(conn io.ReadWriter, pieceIndex, offset, blockBytesExpected in
 			}
 			return block, err
 		}
-		index, offset, partialBlock := parsePiecePayload(piece)
-		log.Printf("Piece message received: index %d, offset %d, block size %d.\n",
-			index, offset, len(partialBlock))
+		_, _, partialBlock := parsePiecePayload(piece)
+		// log.Printf("Piece message received: index %d, offset %d, block size %d.\n",
+		// 	index, offset, len(partialBlock))
 
 		block = append(block, partialBlock...)
 		blockBytesReceived += len(partialBlock)
