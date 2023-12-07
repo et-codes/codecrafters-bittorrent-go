@@ -1,4 +1,4 @@
-package logger
+package logging
 
 import "log"
 
@@ -14,7 +14,7 @@ const (
 	LevelOff            // Shows no messages
 )
 
-// logger.New(l int) returns a new logger initialized with the level set to l.
+// logging.New(l int) returns a new logger initialized with the level set to l.
 // Use the logger.LevelX constants to set the level.
 func New(l int) *Logger {
 	if l < LevelDebug {

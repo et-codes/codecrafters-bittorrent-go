@@ -10,11 +10,54 @@ import (
 	"os"
 )
 
-func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
+func (c *Client) DownloadFile(conn io.ReadWriter, outputPath string) error {
 	// Handshake and run preliminary protocol.
-	err := initiateDownload(conn, pieceIndex, c.InfoHash)
+	err := c.initiateDownload(conn)
 	if err != nil {
 		return err
+	}
+
+	// Download each piece into a separate file.
+	pieceFiles := []string{}
+	for i := 0; i < len(c.PieceHashes); i++ {
+		filename := fmt.Sprintf("%s.%d", outputPath, i)
+		pieceFiles = append(pieceFiles, filename)
+
+		if err := c.DownloadPiece(conn, i, filename); err != nil {
+			return fmt.Errorf("error downloading piece %d: %v", i, err)
+		}
+	}
+
+	// Stitch the piece files together.
+	logger.Debug("Creating output file %s...\n", outputPath)
+	out, err := os.Create(outputPath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	for _, piece := range pieceFiles {
+		in, err := os.Open(piece)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+
+		logger.Debug("Copying contents of %s into output file...", piece)
+		n, err := io.Copy(out, in)
+		if err != nil {
+			return fmt.Errorf("error writing piece into file: %v", err)
+		}
+		logger.Info("Wrote %d bytes to %s.\n", n, outputPath)
+	}
+
+	return nil
+}
+
+func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
+	// Make sure client has the piece.
+	if !peerHasPiece(c.Bitfield, pieceIndex) {
+		return fmt.Errorf("peer does not have piece %d", pieceIndex)
 	}
 
 	// If last piece, calculate its size.
@@ -59,14 +102,14 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 		}
 	}
 
-	logger.Info("Piece download complete, downloaded %d/%d bytes.\n", pieceBytesReceived, c.Info.PieceLength)
+	logger.Info("Piece download complete, downloaded %d/%d bytes.\n", pieceBytesReceived, pieceLength)
 
 	if !pieceIsValid(c.PieceHashes[pieceIndex], piece) {
 		return fmt.Errorf("piece did not meet hash check")
 	}
-	logger.Info("Piece hash is valid.")
+	logger.Info("Piece %d hash is valid.", pieceIndex)
 
-	err = savePiece(outputPath, piece)
+	err := savePiece(outputPath, piece)
 	if err != nil {
 		return err
 	}
@@ -108,12 +151,12 @@ func pieceIsValid(pieceHash string, pieceData []byte) bool {
 	return hash == pieceHash
 }
 
-func downloadBlock(conn io.ReadWriter, pieceIndex, offset, blockBytesExpected int) ([]byte, error) {
+func downloadBlock(conn io.ReadWriter, pieceIndex, offset, expectedLength int) ([]byte, error) {
 	// Build request message.
 	payload := requestPayloadToBytes(RequestPayload{
 		Index:  uint32(pieceIndex),
 		Offset: uint32(offset),
-		Length: uint32(blockBytesExpected),
+		Length: uint32(expectedLength),
 	})
 	request := Message{
 		Header:  MessageHeader{Type: msgRequest},
@@ -143,9 +186,9 @@ func downloadBlock(conn io.ReadWriter, pieceIndex, offset, blockBytesExpected in
 	return block, nil
 }
 
-func initiateDownload(conn io.ReadWriter, pieceIndex int, infoHash string) error {
+func (c *Client) initiateDownload(conn io.ReadWriter) error {
 	// Execute handshake.
-	_, err := Handshake(conn, infoHash)
+	_, err := Handshake(conn, c.InfoHash)
 	if err != nil {
 		return err
 	}
@@ -157,11 +200,7 @@ func initiateDownload(conn io.ReadWriter, pieceIndex int, infoHash string) error
 		return err
 	}
 	logger.Debug("Bitfield message received: %+v\n", bitfield)
-
-	// Make sure peer has the piece we're asking for.
-	if !peerHasPiece(bitfield, pieceIndex) {
-		return fmt.Errorf("peer does not have piece %d", pieceIndex)
-	}
+	c.Bitfield = bitfield
 
 	logger.Debug("Sending interested message...")
 	interested := Message{

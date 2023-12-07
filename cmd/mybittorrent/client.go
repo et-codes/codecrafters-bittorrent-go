@@ -18,6 +18,7 @@ type Client struct {
 	Peers         []string    // List of peer IP addresses
 	ConnectedPeer int         // Index of the currently connected peer (-1 means none)
 	PieceHashes   []string    // SHA-1 hashes of Pieces
+	Bitfield      Message     // Bitfield indicating pieces the client has
 }
 
 type TorrentInfo struct {

@@ -18,3 +18,6 @@ handshake:
 
 download_piece:
 	./your_bittorrent.sh download_piece -o /tmp/test-piece-0 sample.torrent 0
+
+download:
+	./your_bittorrent.sh download -o /tmp/test.txt sample.torrent
