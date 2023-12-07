@@ -7,7 +7,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"time"
 
 	"github.com/jackpal/bencode-go"
 )
@@ -64,9 +63,6 @@ func NewClient(path string) (Client, error) {
 func (c *Client) Connect(peerIndex int) (net.Conn, error) {
 	conn, err := net.Dial("tcp", c.Peers[peerIndex])
 	if err != nil {
-		return nil, err
-	}
-	if err := conn.SetReadDeadline(time.Now().Add(30 * time.Second)); err != nil {
 		return nil, err
 	}
 	c.ConnectedPeer = peerIndex

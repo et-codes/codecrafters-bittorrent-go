@@ -56,19 +56,27 @@ func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 	// Get message length.
 	header := make([]byte, 4)
 	if _, err := io.ReadFull(conn, header); err != nil {
-		return message, err
+		if err != io.EOF {
+			return message, err
+		}
+		logger.Debug("Reached EOF while reading message header.")
+		return message, nil
 	}
 
 	length := int(binary.BigEndian.Uint32(header))
 	message.Header.Length = length
 	if length == 0 {
-		return message, fmt.Errorf("message received has 0 length")
+		return message, nil
 	}
 
 	// Get message type.
 	mt := make([]byte, 1)
 	if _, err := io.ReadFull(conn, mt); err != nil {
-		return message, err
+		if err != io.EOF {
+			return message, err
+		}
+		logger.Debug("Reached EOF while reading message type.")
+		return message, nil
 	}
 
 	msgType := int(mt[0])
@@ -85,14 +93,17 @@ func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 	}
 
 	// Get the payload.
-	payload := make([]byte, length-1)
-	n, err := io.ReadFull(conn, payload)
+	payloadLength := length - 1 // Subtract the message type byte
+	payload := make([]byte, payloadLength)
+	_, err := io.ReadAtLeast(conn, payload, payloadLength)
 	if err != nil {
-		return message, err
+		if err != io.EOF {
+			return message, err
+		}
+		logger.Debug("Reached EOF while reading message payload.")
+		return message, nil
 	}
 	message.Payload = payload
-
-	logger.Debug("Received %d bytes.", n)
 
 	return message, nil
 }

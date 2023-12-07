@@ -17,14 +17,23 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 		return err
 	}
 
+	// If last piece, calculate its size.
+	var pieceLength int
+	if pieceIndex == len(c.PieceHashes) {
+		pieceLength = c.Info.Length % c.Info.PieceLength
+		logger.Debug("Last piece length %d", pieceLength)
+	} else {
+		pieceLength = c.Info.PieceLength
+	}
+
 	// Calculate how many blocks are needed to fetch the entire piece.
-	blocksRequired := int(math.Ceil(float64(c.Info.PieceLength) / float64(blockLength)))
+	blocksRequired := int(math.Ceil(float64(pieceLength) / float64(blockLength)))
 
 	pieceBytesReceived := 0
 	piece := []byte{}
 
 	logger.Debug("Requesting %d blocks to retreive piece of length %d...\n",
-		blocksRequired, c.Info.PieceLength)
+		blocksRequired, pieceLength)
 
 	// Download each block.
 	for blockNum := 1; blockNum <= blocksRequired; blockNum++ {
@@ -32,7 +41,7 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 
 		// Last block may be less than a full block length.
 		if blockNum == blocksRequired {
-			blockBytesExpected = c.Info.PieceLength - pieceBytesReceived
+			blockBytesExpected = pieceLength - pieceBytesReceived
 		}
 
 		block, err := downloadBlock(conn, pieceIndex, pieceBytesReceived, blockBytesExpected)
@@ -40,9 +49,14 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 			return err
 		}
 
-		pieceBytesReceived += len(block)
-		logger.Info("Block %d/%d received %d bytes.\n", blockNum, blocksRequired, len(block))
-		piece = append(piece, block...)
+		if block != nil {
+			pieceBytesReceived += len(block)
+			logger.Info("Block %d/%d received %d bytes.\n", blockNum, blocksRequired, len(block))
+			piece = append(piece, block...)
+		} else {
+			logger.Debug("Received empty block before piece length, short piece.")
+			break
+		}
 	}
 
 	logger.Info("Piece download complete, downloaded %d/%d bytes.\n", pieceBytesReceived, c.Info.PieceLength)
@@ -112,9 +126,6 @@ func downloadBlock(conn io.ReadWriter, pieceIndex, offset, blockBytesExpected in
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO figure out why we have to wait before reading message...
-	// time.Sleep(300 * time.Millisecond)
 
 	// Get piece message.
 	logger.Debug("Waiting for piece message...")
@@ -212,6 +223,9 @@ func requestPayloadToBytes(req RequestPayload) []byte {
 // parsePiecePayload converts a piece message payload into index, offset,
 // and block values.
 func parsePiecePayload(piece Message) (index uint32, offset uint32, block []byte) {
+	if piece.Payload == nil {
+		return 0, 0, nil
+	}
 	index = binary.BigEndian.Uint32(piece.Payload[0:4])
 	offset = binary.BigEndian.Uint32(piece.Payload[4:8])
 	if len(piece.Payload) > 8 {
