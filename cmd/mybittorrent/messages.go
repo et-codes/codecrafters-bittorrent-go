@@ -53,7 +53,7 @@ const (
 func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 	// Get length and type header.
 	header := make([]byte, 5)
-	_, err := io.ReadFull(conn, header)
+	_, err := conn.Read(header)
 	if err != nil {
 		if err != io.EOF {
 			return Message{}, err
@@ -85,7 +85,7 @@ func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
 	payload := make([]byte, length-1)
 	bytesRead := 0
 	for bytesRead < length-1 {
-		n, err := io.ReadFull(conn, payload)
+		n, err := conn.Read(payload[bytesRead:])
 		if err != nil {
 			if err != io.EOF {
 				return Message{}, err
