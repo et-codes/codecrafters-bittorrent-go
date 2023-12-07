@@ -19,7 +19,7 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 
 	// If last piece, calculate its size.
 	var pieceLength int
-	if pieceIndex == len(c.PieceHashes) {
+	if pieceIndex == len(c.PieceHashes)-1 {
 		pieceLength = c.Info.Length % c.Info.PieceLength
 		logger.Debug("Last piece length %d", pieceLength)
 	} else {
@@ -54,8 +54,8 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 			logger.Info("Block %d/%d received %d bytes.\n", blockNum, blocksRequired, len(block))
 			piece = append(piece, block...)
 		} else {
-			logger.Debug("Received empty block before piece length, short piece.")
-			break
+			logger.Error("Received empty block before reaching piece length.")
+			blockNum-- // try again
 		}
 	}
 
