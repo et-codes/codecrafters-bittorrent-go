@@ -9,6 +9,8 @@ import (
 	"log"
 	"math"
 	"os"
+
+	"github.com/codecrafters-io/bittorrent-starter-go/logger"
 )
 
 func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
@@ -96,46 +98,41 @@ func pieceIsValid(pieceHash string, pieceData []byte) bool {
 }
 
 func downloadBlock(conn io.ReadWriter, pieceIndex, offset, blockBytesExpected int) ([]byte, error) {
-	block := []byte{}
-	blockBytesReceived := 0
-	for blockBytesReceived < blockBytesExpected {
-		// Build request message.
-		payload := requestPayloadToBytes(RequestPayload{
-			Index:  uint32(pieceIndex),
-			Offset: uint32(offset),
-			Length: uint32(blockBytesExpected - blockBytesReceived),
-		})
-		request := Message{
-			Header:  MessageHeader{Type: msgRequest},
-			Payload: payload,
-		}
+	logger := logger.New(logger.LevelDebug)
 
-		// Send request message.
-		log.Printf("Sending request message at offset %d...\n", offset)
-		err := sendMessage(conn, request)
-		if err != nil {
-			return block, err
-		}
-
-		// TODO figure out why we have to wait before reading message...
-		// time.Sleep(300 * time.Millisecond)
-
-		// Get piece message.
-		// log.Println("Waiting for piece message...")
-		piece, err := receiveMessage(conn, msgPiece)
-		if err != nil {
-			if piece.Header.Type == msgRejected {
-				log.Println("Request was rejected.")
-			}
-			return block, err
-		}
-		_, _, partialBlock := parsePiecePayload(piece)
-		// log.Printf("Piece message received: index %d, offset %d, block size %d.\n",
-		// 	index, offset, len(partialBlock))
-
-		block = append(block, partialBlock...)
-		blockBytesReceived += len(partialBlock)
+	// Build request message.
+	payload := requestPayloadToBytes(RequestPayload{
+		Index:  uint32(pieceIndex),
+		Offset: uint32(offset),
+		Length: uint32(blockBytesExpected),
+	})
+	request := Message{
+		Header:  MessageHeader{Type: msgRequest},
+		Payload: payload,
 	}
+
+	// Send request message.
+	logger.Debug("Sending request message at offset %d...\n", offset)
+	err := sendMessage(conn, request)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO figure out why we have to wait before reading message...
+	// time.Sleep(300 * time.Millisecond)
+
+	// Get piece message.
+	logger.Debug("Waiting for piece message...")
+	piece, err := receiveMessage(conn, msgPiece)
+	if err != nil {
+		if piece.Header.Type == msgRejected {
+			logger.Error("Request was rejected.")
+		}
+		return nil, err
+	}
+	i, o, block := parsePiecePayload(piece)
+	logger.Debug("Piece message received: index %d, offset %d, block size %d.\n",
+		i, o, len(block))
 
 	return block, nil
 }
