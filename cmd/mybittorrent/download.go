@@ -6,11 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
-
-	"github.com/codecrafters-io/bittorrent-starter-go/logger"
 )
 
 func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath string) error {
@@ -26,7 +23,7 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 	pieceBytesReceived := 0
 	piece := []byte{}
 
-	log.Printf("Requesting %d blocks to retreive piece of length %d...\n",
+	logger.Debug("Requesting %d blocks to retreive piece of length %d...\n",
 		blocksRequired, c.Info.PieceLength)
 
 	// Download each block.
@@ -44,16 +41,16 @@ func (c *Client) DownloadPiece(conn io.ReadWriter, pieceIndex int, outputPath st
 		}
 
 		pieceBytesReceived += len(block)
-		log.Printf("Block %d/%d received %d bytes.\n", blockNum, blocksRequired, len(block))
+		logger.Info("Block %d/%d received %d bytes.\n", blockNum, blocksRequired, len(block))
 		piece = append(piece, block...)
 	}
 
-	log.Printf("Piece download complete, downloaded %d/%d bytes.\n", pieceBytesReceived, c.Info.PieceLength)
+	logger.Info("Piece download complete, downloaded %d/%d bytes.\n", pieceBytesReceived, c.Info.PieceLength)
 
 	if !pieceIsValid(c.PieceHashes[pieceIndex], piece) {
 		return fmt.Errorf("piece did not meet hash check")
 	}
-	log.Println("Piece hash is valid.")
+	logger.Info("Piece hash is valid.")
 
 	err = savePiece(outputPath, piece)
 	if err != nil {
@@ -88,7 +85,7 @@ func pieceIsValid(pieceHash string, pieceData []byte) bool {
 
 	_, err := h.Write(pieceData)
 	if err != nil {
-		log.Println("Error hashing piece:", err.Error())
+		logger.Error("Error hashing piece: %v", err)
 		return false
 	}
 
@@ -98,8 +95,6 @@ func pieceIsValid(pieceHash string, pieceData []byte) bool {
 }
 
 func downloadBlock(conn io.ReadWriter, pieceIndex, offset, blockBytesExpected int) ([]byte, error) {
-	logger := logger.New(logger.LevelDebug)
-
 	// Build request message.
 	payload := requestPayloadToBytes(RequestPayload{
 		Index:  uint32(pieceIndex),
@@ -145,19 +140,19 @@ func initiateDownload(conn io.ReadWriter, pieceIndex int, infoHash string) error
 	}
 
 	// Get bitfield message.
-	log.Println("Waiting for bitfield message...")
+	logger.Debug("Waiting for bitfield message...")
 	bitfield, err := receiveMessage(conn, msgBitfield)
 	if err != nil {
 		return err
 	}
-	log.Printf("Bitfield message received: %+v\n", bitfield)
+	logger.Debug("Bitfield message received: %+v\n", bitfield)
 
 	// Make sure peer has the piece we're asking for.
 	if !peerHasPiece(bitfield, pieceIndex) {
 		return fmt.Errorf("peer does not have piece %d", pieceIndex)
 	}
 
-	log.Println("Sending interested message...")
+	logger.Debug("Sending interested message...")
 	interested := Message{
 		Header: MessageHeader{Type: msgInterested},
 	}
@@ -167,12 +162,12 @@ func initiateDownload(conn io.ReadWriter, pieceIndex int, infoHash string) error
 	}
 
 	// Get 'unchoke' message
-	log.Println("Waiting for unchoke message...")
+	logger.Debug("Waiting for unchoke message...")
 	unchoke, err := receiveMessage(conn, msgUnchoke)
 	if err != nil {
 		return err
 	}
-	log.Printf("Unchoke message received: %+v\n", unchoke)
+	logger.Debug("Unchoke message received: %+v\n", unchoke)
 
 	return nil
 }

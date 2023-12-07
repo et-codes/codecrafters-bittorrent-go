@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 
@@ -56,23 +55,23 @@ func (c *Client) discoverPeers() (GetPeersResponse, error) {
 
 	addr, err := peerRequestURL(c.Announce, c.InfoHash, c.Info.Length)
 	if err != nil {
-		log.Println(err)
+		logger.Error(err.Error())
 		return peerResp, err
 	}
 
 	res, err := http.Get(addr)
 	if err != nil {
-		log.Println(err)
+		logger.Error(err.Error())
 		return peerResp, err
 	}
 	if res.StatusCode != http.StatusOK {
-		log.Printf("Response code %d received.\n", res.StatusCode)
+		logger.Error("Response code %d received.\n", res.StatusCode)
 		return peerResp, err
 	}
 
 	err = bencode.Unmarshal(res.Body, &peerResp)
 	if err != nil {
-		log.Println(err)
+		logger.Error(err.Error())
 		return peerResp, err
 	}
 	res.Body.Close()

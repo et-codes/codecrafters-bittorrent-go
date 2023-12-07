@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os"
 	"time"
@@ -83,7 +82,7 @@ func Handshake(conn io.ReadWriter, infoHash string) (Peer, error) {
 	// Create the handshake message.
 	message := newHandshakeMessage(infoHash)
 
-	log.Println("Sending handshake...")
+	logger.Debug("Sending handshake...")
 	n, err := conn.Write(message)
 	if err != nil {
 		return Peer{}, err
@@ -102,7 +101,7 @@ func Handshake(conn io.ReadWriter, infoHash string) (Peer, error) {
 	if err != nil {
 		return peer, err
 	}
-	log.Printf("Handshake returned from peer %x.\n", peer.PeerID)
+	logger.Debug("Handshake returned from peer %x.\n", peer.PeerID)
 
 	return peer, nil
 }

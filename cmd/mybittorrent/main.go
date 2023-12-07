@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strconv"
+
+	l "github.com/codecrafters-io/bittorrent-starter-go/logger"
 )
 
 const (
@@ -14,11 +15,14 @@ const (
 	cmdPeers         = "peers"
 	cmdHandshake     = "handshake"
 	cmdDownloadPiece = "download_piece"
+	logLevel         = l.LevelDebug
 )
+
+var logger = l.New(logLevel)
 
 func main() {
 	if len(os.Args) < 3 {
-		log.Fatal("Insufficient number of arguments given.")
+		logger.Fatal("Insufficient number of arguments given.\n")
 	}
 	command := os.Args[1]
 
@@ -34,7 +38,7 @@ func main() {
 	case cmdDownloadPiece:
 		doDownloadPiece()
 	default:
-		log.Fatal("Unknown command: " + command)
+		logger.Fatal("Unknown command %q\n", command)
 	}
 }
 
@@ -42,7 +46,7 @@ func doDecode() {
 	bencodedValue := os.Args[2]
 	decoded, err := Decode(bencodedValue)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 	printDecodeOutput(decoded)
 }
@@ -51,7 +55,7 @@ func doInfo() {
 	path := os.Args[2]
 	tf, err := NewClient(path)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 	tf.PrintInfo()
 }
@@ -60,32 +64,32 @@ func doPeers() {
 	path := os.Args[2]
 	tf, err := NewClient(path)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 	PrintPeers(tf.Peers)
 }
 
 func doHandshake() {
 	if len(os.Args) < 4 {
-		log.Fatal("Insufficient number of arguments given.")
+		logger.Fatal("Insufficient number of arguments given.")
 	}
 	path := os.Args[2]
 	c, err := NewClient(path)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 	peer := os.Args[3] // peer ip_address:port
 
-	log.Printf("Connecting to peer at %s...\n", peer)
+	logger.Info("Connecting to peer at %s...\n", peer)
 	conn, err := net.Dial("tcp", peer)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 	defer conn.Close()
 
 	handshake, err := Handshake(conn, c.InfoHash)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 
 	PrintHandshake(handshake)
@@ -93,7 +97,7 @@ func doHandshake() {
 
 func doDownloadPiece() {
 	if len(os.Args) < 6 || os.Args[2] != "-o" {
-		log.Fatal("Syntax: mybittorrent download_piece -o " +
+		logger.Fatal("Syntax: mybittorrent download_piece -o " +
 			"[OUTPUT_PATH] [TORRENT_PATH] [PIECE_INDEX]")
 	}
 	outputPath := os.Args[3]
@@ -102,19 +106,19 @@ func doDownloadPiece() {
 
 	c, err := NewClient(path)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 
 	// TODO manage connections to multiple peers
 	conn, err := c.Connect(1)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 	defer c.Close(conn)
 
-	log.Printf("Downloading piece %d from %s to %s\n", piece, path, outputPath)
+	logger.Info("Downloading piece %d from %s to %s\n", piece, path, outputPath)
 	if err := c.DownloadPiece(conn, piece, outputPath); err != nil {
-		log.Fatal(err)
+		logger.Fatal(err.Error())
 	}
 
 	fmt.Printf("Piece %d downloaded to %s.\n", piece, outputPath)

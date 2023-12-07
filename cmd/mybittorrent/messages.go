@@ -45,75 +45,56 @@ const (
 	msgRequest              // 6 index, offest, and length
 	msgPiece                // 7 index, offest, and piece index
 	msgCancel               // 8 index, offest, and length
-	msgRejected      = 16   // - use for message without type byte
+	msgRejected      = 16   // 16 request rejected by peer
 )
 
 // receiveMessage reads a BitTorrent protocol response from the peer and
 // returns its contents and an error.
 func receiveMessage(conn io.ReadWriter, expectedType int) (Message, error) {
-	// Get length and type header.
-	header := make([]byte, 5)
-	_, err := conn.Read(header)
-	if err != nil {
-		if err != io.EOF {
-			return Message{}, err
-		}
+	message := Message{}
+
+	// Get message length.
+	header := make([]byte, 4)
+	if _, err := io.ReadFull(conn, header); err != nil {
+		return message, err
 	}
 
-	length := int(binary.BigEndian.Uint32(header[:4]))
+	length := int(binary.BigEndian.Uint32(header))
+	message.Header.Length = length
 	if length == 0 {
-		return Message{}, fmt.Errorf("message received has 0 length")
+		return message, fmt.Errorf("message received has 0 length")
 	}
 
-	msgType := int(header[4])
+	// Get message type.
+	mt := make([]byte, 1)
+	if _, err := io.ReadFull(conn, mt); err != nil {
+		return message, err
+	}
+
+	msgType := int(mt[0])
+	message.Header.Type = msgType
+
 	if msgType != expectedType {
-		msg := Message{
-			Header: MessageHeader{Length: length, Type: msgType},
-		}
-		return msg,
-			fmt.Errorf("expected message type %d, received %+v",
-				expectedType, msg)
+		return message,
+			fmt.Errorf("expected message type %d, received %d", expectedType, msgType)
 	}
 
+	// Return now if there is no payload.
 	if length == 1 {
-		return Message{
-			Header: MessageHeader{Length: length, Type: msgType},
-		}, nil
+		return message, nil
 	}
 
 	// Get the payload.
 	payload := make([]byte, length-1)
-	bytesRead := 0
-	for bytesRead < length-1 {
-		n, err := conn.Read(payload[bytesRead:])
-		if err != nil {
-			if err != io.EOF {
-				return Message{}, err
-			}
-		}
-		bytesRead += n
+	n, err := io.ReadFull(conn, payload)
+	if err != nil {
+		return message, err
 	}
+	message.Payload = payload
 
-	if len(payload) == 0 {
-		return Message{}, fmt.Errorf(
-			"no message type or payload received, expected length %d", length)
-	}
+	logger.Debug("Received %d bytes.", n)
 
-	// TODO: should we loop until the entire message is received?
-	// Make sure we received all of the message.
-	if bytesRead < length-1 {
-		err = fmt.Errorf("only recieved %d bytes out of %d", bytesRead, length-1)
-	} else {
-		err = nil
-	}
-
-	return Message{
-		Header: MessageHeader{
-			Length: length,
-			Type:   msgType,
-		},
-		Payload: payload,
-	}, err
+	return message, nil
 }
 
 // sendMessage sends a message to the peer.
